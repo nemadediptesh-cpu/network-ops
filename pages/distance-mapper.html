@@ -1,0 +1,2175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Plant Warehouse Distance Map</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js">
+    </script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        :root {
+            --color-background: #FFFFFF;
+            --color-surface: #FFFFFF;
+            --color-text: #1A1A1A;
+            --color-text-secondary: #666666;
+            --color-primary: #1018D8;
+            --color-primary-hover: #0B13B0;
+            --color-border: #D9D9D9;
+            --color-success: #0fa4a4;
+            --color-warning: #f59e0b;
+            --color-error: #c0152f;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background-color: var(--color-background);
+            color: var(--color-text);
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: var(--color-surface);
+            padding: 20px;
+            border-radius: 0;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--color-primary);
+        }
+
+        .header-content {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
+            color: var(--color-text);
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: var(--color-text-secondary);
+            font-size: 14px;
+            margin: 4px 0 0 0;
+        }
+
+        .settings-toggle {
+            background: var(--color-primary);
+            color: white;
+            border: none;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 24px;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .settings-toggle:hover {
+            background: var(--color-primary-hover);
+            transform: scale(1.1);
+        }
+
+        .settings-panel {
+            background: var(--color-surface);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .settings-section {
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--color-text);
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--color-primary);
+        }
+
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            margin-bottom: 4px;
+            color: var(--color-text);
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 12px;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--color-primary);
+        }
+
+        .btn {
+            background: var(--color-primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: background 0.2s;
+            width: 100%;
+        }
+
+        .btn:hover {
+            background: var(--color-primary-hover);
+        }
+
+        .btn-secondary {
+            background: #666666;
+        }
+
+        .btn-secondary:hover {
+            background: #4d4d4d;
+        }
+
+        .btn-success {
+            background: var(--color-success);
+        }
+
+        .btn-warning {
+            background: var(--color-warning);
+            color: #000000;
+        }
+
+        .entry-card {
+            background: #f8f8f8;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid var(--color-border);
+            position: relative;
+            margin-bottom: 10px;
+        }
+
+        .delete-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: var(--color-error);
+            padding: 4px 8px;
+            font-size: 10px;
+            width: auto;
+            border-radius: 4px;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+
+        .entry-grid {
+            max-height: 400px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+
+        #map {
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.12);
+            height: 600px;
+            background-color: #f5f5f5;
+            transition: height 0.3s;
+        }
+        #map.fullscreen {
+            height: 85vh;
+        }
+
+        .content-wrapper {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 20px;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .location-list {
+            background: var(--color-surface);
+            padding: 16px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            max-height: 650px;
+            overflow-y: auto;
+        }
+
+        .location-list h3 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: var(--color-text);
+        }
+
+        .location-item {
+            padding: 10px;
+            margin-bottom: 8px;
+            background-color: #f9f9f9;
+            border-left: 3px solid var(--color-primary);
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: background-color 0.2s;
+            line-height: 1.4;
+        }
+
+        .location-item:hover {
+            background-color: #f0f0f0;
+        }
+
+        .location-name {
+            font-weight: 600;
+            color: var(--color-text);
+            display: block;
+            font-size: 12px;
+            margin-bottom: 4px;
+        }
+
+        .distance-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 5px;
+            margin-top: 6px;
+        }
+
+        .distance-chip {
+            background: #E8E8FC;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            color: #1018D8;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: all 0.3s;
+        }
+
+        .distance-chip.route-calculated {
+            background: #E8E8FC !important;
+            color: #1018D8 !important;
+            border-left-color: #1018D8 !important;
+        }
+
+        .distance-chip.route-calculated::after {
+            content: " 🚗";
+            font-size: 9px;
+        }
+
+        .info-box {
+            background: var(--color-surface);
+            padding: 16px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            font-size: 11px;
+            line-height: 1.6;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            color: var(--color-text);
+            border-bottom: 2px solid var(--color-primary);
+            padding-bottom: 10px;
+        }
+
+        .saved-map-item {
+            background: #f8f8f8;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid var(--color-border);
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .saved-map-item:hover {
+            background: #E8E8FC;
+            border-color: var(--color-primary);
+            transform: translateX(5px);
+        }
+
+        .saved-map-name {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 5px;
+            color: var(--color-text);
+        }
+
+        .saved-map-details {
+            font-size: 11px;
+            color: var(--color-text-secondary);
+        }
+
+        .saved-map-delete {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: var(--color-error);
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 10px;
+        }
+
+        .modal-close {
+            background: #666666;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 20px;
+            width: 100%;
+        }
+
+        .modal-close:hover {
+            background: #4d4d4d;
+        }
+
+        .distance-label {
+            cursor: move !important;
+            z-index: 1000 !important;
+            pointer-events: all !important;
+        }
+
+        .distance-label:hover {
+            filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.2));
+        }
+
+        .route-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 10px;
+        }
+
+        .legend-line {
+            width: 20px;
+            height: 3px;
+            border-radius: 2px;
+        }
+
+        .route-summary {
+            background: #f8f8f8;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid var(--color-border);
+            margin-bottom: 15px;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 11px;
+        }
+
+        .summary-total {
+            font-weight: 700;
+            color: var(--color-primary);
+            border-top: 1px solid #ddd;
+            margin-top: 8px;
+            padding-top: 8px;
+        }
+
+        .calculation-mode {
+            background: #E8E8FC;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            font-size: 12px;
+            border-left: 4px solid #1018D8;
+        }
+
+        .mode-badge {
+            display: inline-block;
+            background: var(--color-primary);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            margin-left: 5px;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .loading-spinner {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--color-primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--color-surface);
+            color: var(--color-text);
+            padding: 15px 25px;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 10000;
+            animation: slideIn 0.3s;
+            border-left: 4px solid var(--color-primary);
+        }
+
+        .notification.success {
+            border-left-color: var(--color-success);
+        }
+
+        .notification.error {
+            border-left-color: var(--color-error);
+        }
+
+        .notification.info {
+            border-left-color: #2196F3;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .route-badge {
+            display: inline-block;
+            background: #1018D8;
+            color: white;
+            font-size: 8px;
+            padding: 1px 6px;
+            border-radius: 10px;
+            margin-left: 4px;
+            font-weight: 600;
+        }
+
+        .label-route-badge {
+            display: inline-block;
+            background: #1018D8;
+            color: white;
+            font-size: 7px;
+            padding: 1px 5px;
+            border-radius: 8px;
+            margin-left: 4px;
+            font-weight: 600;
+            vertical-align: middle;
+        }
+
+        .route-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            padding: 8px 0 4px 0;
+            border-top: 1px solid #e5e7eb;
+            margin-top: 8px;
+        }
+        .route-controls label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .route-controls input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .fullmap-exit {
+            display: none;
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 2000;
+            background: var(--color-error);
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transition: background 0.2s;
+        }
+        .fullmap-exit:hover {
+            background: #a01025;
+        }
+        .fullmap-exit.visible {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .content-wrapper {
+                grid-template-columns: 1fr;
+            }
+            #map {
+                height: 400px;
+            }
+            .settings-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-content">
+                <div>
+                    <h1 id="mainTitle" contenteditable="true" style="outline: none; cursor: text;" title="Click to edit">Multi-Plant Warehouse Distance Analysis</h1>
+                    <p id="mainSubtitle" class="subtitle" contenteditable="true" style="outline: none; cursor: text;" title="Click to edit">Calculate road distances from plants to warehouse options</p>
+                </div>
+            </div>
+            <button class="settings-toggle" onclick="toggleSettings()" title="Toggle Settings">
+                <i class="fas fa-cog"></i>
+            </button>
+        </div>
+
+        <div id="settingsWrapper">
+            <div class="settings-panel" id="settingsPanel">
+                <div class="calculation-mode" id="calculationModeDisplay">
+                    <i class="fas fa-info-circle"></i>
+                    <strong>Route Mode:</strong> <span id="modeText">Plant → Warehouse</span>
+                    <span class="mode-badge" id="modeBadge">0 routes</span>
+                    <span id="routeStatusBadge" style="display:none; background:#0fa4a4; padding:2px 8px; border-radius:12px; font-size:10px; font-weight:600; color:white; margin-left:8px;">✅ Routes Calculated</span>
+                </div>
+
+                <div class="settings-grid">
+                    <!-- Plants Section -->
+                    <div class="settings-section">
+                        <div class="section-title">🏭 Plants</div>
+                        <div class="entry-grid" id="plantEntries"></div>
+                        <button class="btn btn-secondary" onclick="addPlantEntry()" style="margin-top: 10px;">+ Add Plant</button>
+                    </div>
+
+                    <!-- Warehouses Section -->
+                    <div class="settings-section">
+                        <div class="section-title">🏢 Warehouse Options</div>
+                        <div class="entry-grid" id="warehouseEntries"></div>
+                        <button class="btn btn-secondary" onclick="addWarehouseEntry()" style="margin-top: 10px;">+ Add Warehouse</button>
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <div class="form-group">
+                        <label>Route Type</label>
+                        <select id="routeProfile">
+                            <option value="driving">🚗 Driving (Car)</option>
+                            <option value="car">🚙 Car (Fastest)</option>
+                            <option value="truck">🚛 Truck (Avoid restrictions)</option>
+                        </select>
+                    </div>
+
+                    <div class="button-group">
+                        <button class="btn" onclick="generateMap()">🔄 Generate Map</button>
+                        <button class="btn btn-success" onclick="calculateRoutes()">
+                            <i class="fas fa-route"></i> Calculate Routes
+                        </button>
+                    </div>
+                    <div class="button-group" style="margin-top: 10px;">
+                        <button class="btn btn-warning" onclick="clearRoutes()">
+                            <i class="fas fa-trash"></i> Clear Routes
+                        </button>
+                        <button class="btn btn-secondary" onclick="resetDefaults()">↻ Reset</button>
+                    </div>
+                    <div class="button-group" style="margin-top: 10px;">
+                        <button class="btn" style="background: #1018D8;" onclick="saveMap()">💾 Save Map</button>
+                        <button class="btn" style="background: #000000;" onclick="loadSavedMaps()">📂 Load Saved</button>
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <button class="btn" style="background: #0fa4a4;" onclick="exportToPDF()">📄 Download PDF</button>
+                    </div>
+                    <div class="button-group" style="margin-top: 10px;">
+                        <button class="btn" style="background: #f59e0b; color: #000000;" onclick="shareableLink()">🔗 Get Share Link</button>
+                        <button class="btn" style="background: #1018D8;" onclick="exportForCustomer()">📤 Export for Customer</button>
+                    </div>
+                    <div class="button-group" style="margin-top: 10px;">
+                        <button class="btn btn-secondary" onclick="exportRouteReport()">
+                            <i class="fas fa-file-alt"></i> Export Report
+                        </button>
+                        <button class="btn" style="background: #000000;" onclick="toggleFullMap()">
+                            <i class="fas fa-expand"></i> Full Map
+                        </button>
+                    </div>
+
+                    <div style="margin-top: 20px; border-top: 1px solid #e5e7eb; padding-top: 15px;">
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; margin-bottom: 8px;">
+                                <input type="checkbox" id="showPlantLabelsCheckbox" checked onchange="togglePlantLabels()" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span>Show plant labels</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; margin-bottom: 8px;">
+                                <input type="checkbox" id="showWarehouseLabelsCheckbox" checked onchange="toggleWarehouseLabels()" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span>Show warehouse labels</span>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer; margin-top: 8px;">
+                                <input type="checkbox" id="showPopupsCheckbox" checked onchange="togglePopups()" style="width: 18px; height: 18px; cursor: pointer;">
+                                <span>Enable popups on click</span>
+                            </label>
+                        </div>
+
+                        <div class="route-controls">
+                            <label>
+                                <input type="checkbox" id="showRouteLinesCheckbox" checked onchange="toggleRouteLines()">
+                                <span>Route lines</span>
+                            </label>
+                            <label>
+                                <input type="checkbox" id="showRouteLabelsCheckbox" checked onchange="toggleRouteLabels()">
+                                <span>Route distance labels</span>
+                            </label>
+                        </div>
+
+                        <label style="display: block; font-size: 12px; font-weight: 500; margin-top: 10px;">Label Size</label>
+                        <input type="range" id="labelSizeSlider" min="40" max="150" value="100" step="10" style="width: 100%; cursor: pointer;" oninput="updateLabelSize(this.value)">
+                        <div style="display: flex; justify-content: space-between; font-size: 10px; color: #666; margin-top: 2px;">
+                            <span>Tiny</span>
+                            <span id="labelSizeValue">100%</span>
+                            <span>XL</span>
+                        </div>
+                        <div style="font-size: 10px; color: #666; margin-top: 8px; text-align: center;">
+                            <i>Tip: Drag labels on map to reposition them</i>
+                        </div>
+                        <div style="font-size: 10px; color: #666; margin-top: 4px; text-align: center;">
+                            <i>🚗 Labels show <strong>road distances</strong> after route calculation</i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-wrapper">
+            <div style="position:relative;">
+                <div id="map"></div>
+                <button id="exitFullMapBtn" class="fullmap-exit" onclick="toggleFullMap()">
+                    <i class="fas fa-times"></i> Exit Full Map
+                </button>
+            </div>
+
+            <div class="sidebar">
+                <div class="location-list">
+                    <h3>📍 Plants</h3>
+                    <div id="plantsList"></div>
+
+                    <hr style="margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;">
+
+                    <h3>🏢 Warehouses</h3>
+                    <div id="warehousesList"></div>
+                </div>
+
+                <div class="info-box">
+                    <p><strong>Plants:</strong> <span id="plantCount">0</span></p>
+                    <p><strong>Warehouses:</strong> <span id="warehouseCount">0</span></p>
+                    <p><strong>Total Distances:</strong> <span id="distanceCount">0</span></p>
+                    <p><strong>Plant Labels:</strong> <span id="plantLabelCount">0</span> visible</p>
+                    <p><strong>Warehouse Labels:</strong> <span id="warehouseLabelCount">0</span> visible</p>
+
+                    <div style="margin-top: 12px; border-top: 1px solid #e5e7eb; padding-top: 12px;">
+                        <h4 style="font-size: 12px; margin-bottom: 8px;">📊 Route Summary</h4>
+                        <div id="routeSummary">
+                            <p style="color: #999; text-align: center; padding: 5px; font-size: 11px;">Click "Calculate Routes" to see distances</p>
+                        </div>
+                        <div class="route-legend" id="routeLegend"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save/Load Modal -->
+    <div id="saveLoadModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">💾 Saved Maps</div>
+            <div id="savedMapsList"></div>
+            <button class="modal-close" onclick="closeSaveLoadModal()">Close</button>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Calculating road routes...</p>
+            <p style="font-size: 12px; color: #666;" id="loadingStatus">Please wait</p>
+        </div>
+    </div>
+
+    <script>
+        let map;
+        let plantEntries = [];
+        let warehouseEntries = [];
+        let markers = [];
+        let plantLabels = [];
+        let warehouseLabels = [];
+        let labelScale = 1.0;
+        let currentPlants = [];
+        let currentWarehouses = [];
+
+        let routeLayers = [];
+        let currentRoutes = [];
+        let routeDistances = {};
+        let routesCalculated = false;
+
+        let routeLineLayers = [];
+        let routeLabelLayers = [];
+
+        const plantColors = ['#c0152f', '#1018D8', '#0fa4a4', '#f59e0b', '#000000', '#666666'];
+
+        function toggleSettings() {
+            const wrapper = document.getElementById('settingsWrapper');
+            wrapper.style.display = wrapper.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function addPlantEntry() {
+            const container = document.getElementById('plantEntries');
+            const index = plantEntries.length;
+            const color = plantColors[index % plantColors.length];
+
+            const entry = document.createElement('div');
+            entry.className = 'entry-card';
+            entry.innerHTML = `
+                <button class="delete-btn" onclick="removePlantEntry(${index})">×</button>
+                <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <div style="width: 16px; height: 16px; background: ${color}; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 0 1px #ddd;"></div>
+                    <strong style="font-size: 11px;">Plant ${index + 1}</strong>
+                </div>
+                <div class="form-group">
+                    <label>Plant Name</label>
+                    <input type="text" class="plant-name" placeholder="Plant ${index + 1}" oninput="updateLiveData()">
+                </div>
+                <div class="form-group">
+                    <label>Latitude</label>
+                    <input type="number" class="plant-lat" step="any" placeholder="Latitude" oninput="updateLiveData()">
+                </div>
+                <div class="form-group">
+                    <label>Longitude</label>
+                    <input type="number" class="plant-lng" step="any" placeholder="Longitude" oninput="updateLiveData()">
+                </div>
+            `;
+            container.appendChild(entry);
+            plantEntries.push({ element: entry, color: color });
+            updateLiveData();
+        }
+
+        function removePlantEntry(index) {
+            if (plantEntries[index]) {
+                plantEntries[index].element.remove();
+                plantEntries.splice(index, 1);
+            }
+            updateLiveData();
+        }
+
+        function addWarehouseEntry() {
+            const container = document.getElementById('warehouseEntries');
+            const index = warehouseEntries.length;
+
+            const entry = document.createElement('div');
+            entry.className = 'entry-card';
+            entry.innerHTML = `
+                <button class="delete-btn" onclick="removeWarehouseEntry(${index})">×</button>
+                <div class="form-group">
+                    <label>Warehouse Name</label>
+                    <input type="text" class="wh-name" placeholder="Warehouse ${index + 1}" oninput="updateLiveData()">
+                </div>
+                <div class="form-group">
+                    <label>Latitude</label>
+                    <input type="number" class="wh-lat" step="any" placeholder="Latitude" oninput="updateLiveData()">
+                </div>
+                <div class="form-group">
+                    <label>Longitude</label>
+                    <input type="number" class="wh-lng" step="any" placeholder="Longitude" oninput="updateLiveData()">
+                </div>
+                <div class="form-group">
+                    <label>Area (sq ft)</label>
+                    <input type="text" class="wh-area" placeholder="1,00,000" oninput="updateLiveData()">
+                </div>
+            `;
+            container.appendChild(entry);
+            warehouseEntries.push(entry);
+            updateLiveData();
+        }
+
+        function removeWarehouseEntry(index) {
+            if (warehouseEntries[index]) {
+                warehouseEntries[index].remove();
+                warehouseEntries.splice(index, 1);
+            }
+            updateLiveData();
+        }
+
+        function updateLiveData() {
+            currentPlants = plantEntries.map((entry, idx) => {
+                const name = entry.element.querySelector('.plant-name').value || `Plant ${idx + 1}`;
+                const lat = parseFloat(entry.element.querySelector('.plant-lat').value);
+                const lng = parseFloat(entry.element.querySelector('.plant-lng').value);
+                return { name, lat, lng, color: entry.color };
+            }).filter(p => !isNaN(p.lat) && !isNaN(p.lng));
+
+            currentWarehouses = warehouseEntries.map((entry, idx) => {
+                const name = entry.querySelector('.wh-name').value || `Warehouse ${idx + 1}`;
+                const lat = parseFloat(entry.querySelector('.wh-lat').value);
+                const lng = parseFloat(entry.querySelector('.wh-lng').value);
+                const area = entry.querySelector('.wh-area').value || '-';
+                return { name, lat, lng, area };
+            }).filter(w => !isNaN(w.lat) && !isNaN(w.lng));
+
+            document.getElementById('plantCount').textContent = currentPlants.length;
+            document.getElementById('warehouseCount').textContent = currentWarehouses.length;
+            document.getElementById('distanceCount').textContent = currentPlants.length * currentWarehouses.length;
+            document.getElementById('modeBadge').textContent = `${currentPlants.length * currentWarehouses.length} routes`;
+        }
+
+        function calculateDistance(lat1, lng1, lat2, lng2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLng / 2) * Math.sin(dLng / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        function generateMap() {
+            updateLiveData();
+
+            routesCalculated = false;
+            routeDistances = {};
+            currentRoutes = [];
+            routeLineLayers = [];
+            routeLabelLayers = [];
+            document.getElementById('routeStatusBadge').style.display = 'none';
+
+            let allLats = [];
+            let allLngs = [];
+
+            if (currentPlants.length > 0) {
+                allLats.push(...currentPlants.map(p => p.lat));
+                allLngs.push(...currentPlants.map(p => p.lng));
+            }
+
+            if (currentWarehouses.length > 0) {
+                allLats.push(...currentWarehouses.map(w => w.lat));
+                allLngs.push(...currentWarehouses.map(w => w.lng));
+            }
+
+            let centerLat, centerLng;
+            if (allLats.length === 0 || allLngs.length === 0) {
+                centerLat = 20.5937;
+                centerLng = 78.9629;
+            } else {
+                centerLat = allLats.reduce((a, b) => a + b, 0) / allLats.length;
+                centerLng = allLngs.reduce((a, b) => a + b, 0) / allLngs.length;
+            }
+
+            if (!map) {
+                map = L.map('map').setView([centerLat, centerLng], 10);
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '© OpenStreetMap, © CARTO'
+                }).addTo(map);
+            } else {
+                map.setView([centerLat, centerLng], 10);
+            }
+
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+
+            plantLabels.forEach(label => map.removeLayer(label));
+            plantLabels = [];
+
+            warehouseLabels.forEach(label => map.removeLayer(label));
+            warehouseLabels = [];
+
+            routeLayers.forEach(layer => map.removeLayer(layer));
+            routeLayers = [];
+            routeLineLayers = [];
+            routeLabelLayers = [];
+
+            const plantsList = document.getElementById('plantsList');
+            plantsList.innerHTML = '';
+
+            currentPlants.forEach((plant, idx) => {
+                const plantIcon = L.divIcon({
+                    html: `<div style="font-size: 32px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">🏭</div>`,
+                    iconSize: [40, 40],
+                    className: 'custom-plant-icon'
+                });
+
+                const marker = L.marker([plant.lat, plant.lng], { icon: plantIcon }).addTo(map);
+                marker._popupContent = `<strong>${plant.name}</strong><br>Plant Location`;
+                if (document.getElementById('showPopupsCheckbox').checked) {
+                    marker.bindPopup(marker._popupContent);
+                }
+                markers.push(marker);
+
+                const plantItem = document.createElement('div');
+                plantItem.className = 'location-item';
+                plantItem.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <div style="width: 12px; height: 12px; background: ${plant.color}; border-radius: 50%;"></div>
+                        <span class="location-name">${plant.name}</span>
+                    </div>
+                    <div style="font-size: 10px; color: #666; margin-top: 2px;">${plant.lat.toFixed(4)}, ${plant.lng.toFixed(4)}</div>
+                `;
+                plantItem.onclick = () => {
+                    map.setView([plant.lat, plant.lng], 13);
+                    marker.openPopup();
+                };
+                plantsList.appendChild(plantItem);
+            });
+
+            const warehousesList = document.getElementById('warehousesList');
+            warehousesList.innerHTML = '';
+
+            currentWarehouses.forEach((warehouse, idx) => {
+                const warehouseIcon = L.divIcon({
+                    html: '<div style="font-size: 28px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));">🏢</div>',
+                    iconSize: [36, 36],
+                    className: 'custom-warehouse-icon'
+                });
+
+                const distances = currentPlants.length > 0 ?
+                    currentPlants.map(plant => ({
+                        plantName: plant.name,
+                        distance: calculateDistance(plant.lat, plant.lng, warehouse.lat, warehouse.lng),
+                        color: plant.color
+                    })) :
+                    [];
+
+                const marker = L.marker([warehouse.lat, warehouse.lng], { icon: warehouseIcon }).addTo(map);
+                markers.push(marker);
+
+                let popupContent = `<strong>${warehouse.name}</strong><br>Area: ${warehouse.area} sq ft`;
+                if (distances.length > 0) {
+                    popupContent += `<br><br><strong>Distances:</strong><br>`;
+                    distances.forEach(d => {
+                        popupContent += `${d.plantName}: ${d.distance.toFixed(1)} km<br>`;
+                    });
+                }
+                marker._popupContent = popupContent;
+                if (document.getElementById('showPopupsCheckbox').checked) {
+                    marker.bindPopup(marker._popupContent);
+                }
+
+                const whItem = document.createElement('div');
+                whItem.className = 'location-item';
+
+                let distanceHTML = '';
+                if (distances.length > 0) {
+                    distances.forEach(d => {
+                        const isRouteCalculated = routesCalculated && routeDistances[warehouse.name] && routeDistances[warehouse.name][d.plantName] !== undefined;
+                        const displayDist = isRouteCalculated ? routeDistances[warehouse.name][d.plantName] : d.distance;
+                        const routeClass = isRouteCalculated ? 'route-calculated' : '';
+                        const routeBadge = isRouteCalculated ? '<span class="route-badge">🚗</span>' : '';
+                        distanceHTML +=
+                            `<div class="distance-chip ${routeClass}" style="background-color: ${d.color}20; color: ${d.color}; border-left: 3px solid ${d.color};">
+                                ${d.plantName}: ${displayDist.toFixed(1)} km ${routeBadge}
+                            </div>`;
+                    });
+                }
+
+                whItem.innerHTML = `
+                    <span class="location-name">${warehouse.name}</span>
+                    <div style="font-size: 10px; color: #666; margin: 2px 0;">Area: ${warehouse.area} sq ft</div>`;
+                if (distanceHTML) {
+                    whItem.innerHTML += `<div class="distance-grid">${distanceHTML}</div>`;
+                }
+
+                whItem.onclick = () => {
+                    map.setView([warehouse.lat, warehouse.lng], 13);
+                    marker.openPopup();
+                };
+                warehousesList.appendChild(whItem);
+            });
+
+            document.getElementById('plantCount').textContent = currentPlants.length;
+            document.getElementById('warehouseCount').textContent = currentWarehouses.length;
+            document.getElementById('distanceCount').textContent = currentPlants.length * currentWarehouses.length;
+
+            document.getElementById('routeSummary').innerHTML =
+                '<p style="color: #999; text-align: center; padding: 5px; font-size: 11px;">Click "Calculate Routes" to see distances</p>';
+            document.getElementById('routeLegend').innerHTML = '';
+            document.getElementById('routeStatusBadge').style.display = 'none';
+
+            togglePlantLabels();
+            toggleWarehouseLabels();
+            document.getElementById('showRouteLinesCheckbox').checked = true;
+            document.getElementById('showRouteLabelsCheckbox').checked = true;
+
+            showNotification(`Map generated with ${currentPlants.length} plants and ${currentWarehouses.length} warehouses`, 'success');
+        }
+
+        function togglePlantLabels() {
+            const showLabels = document.getElementById('showPlantLabelsCheckbox').checked;
+            plantLabels.forEach(label => map.removeLayer(label));
+            plantLabels = [];
+
+            if (showLabels && currentPlants.length > 0) {
+                currentPlants.forEach((plant, idx) => {
+                    const titleSize = Math.round(12 * labelScale);
+                    const textSize = Math.round(10 * labelScale);
+                    const padding = Math.round(8 * labelScale);
+                    const minWidth = Math.round(100 * labelScale);
+                    const borderWidth = Math.max(1, Math.round(2 * labelScale));
+
+                    let labelContent =
+                        `<div style="background: white; padding: ${padding}px ${padding + 2}px; border-radius: ${Math.round(6 * labelScale)}px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); border: ${borderWidth}px solid ${plant.color}; min-width: ${minWidth}px; transform-origin: center; z-index: 1000;">
+                            <strong style="font-size: ${titleSize}px; color: ${plant.color}; display: block; margin-bottom: ${Math.round(4 * labelScale)}px; line-height: 1.2;">${plant.name}</strong>
+                            <div style="font-size: ${textSize}px; color: #666; line-height: 1.2;">Plant ${idx + 1}</div>
+                        </div>`;
+
+                    const labelLat = plant.lat + 0.015;
+                    const labelLng = plant.lng - 0.015;
+
+                    const label = L.marker([labelLat, labelLng], {
+                        icon: L.divIcon({
+                            html: labelContent,
+                            className: 'distance-label',
+                            iconSize: null,
+                            iconAnchor: [50 * labelScale, -20]
+                        }),
+                        draggable: true,
+                        zIndexOffset: 1000
+                    }).addTo(map);
+
+                    label.on('dragstart', function() { this.setOpacity(0.7); });
+                    label.on('dragend', function() { this.setOpacity(1); });
+
+                    plantLabels.push(label);
+                });
+            }
+            document.getElementById('plantLabelCount').textContent = plantLabels.length;
+        }
+
+        function toggleWarehouseLabels() {
+            const showLabels = document.getElementById('showWarehouseLabelsCheckbox').checked;
+            warehouseLabels.forEach(label => map.removeLayer(label));
+            warehouseLabels = [];
+
+            if (showLabels && currentWarehouses.length > 0) {
+                currentWarehouses.forEach((warehouse, idx) => {
+                    const distances = currentPlants.map(plant => {
+                        const hasRoute = routesCalculated && routeDistances[warehouse.name] && routeDistances[warehouse.name][plant.name] !== undefined;
+                        const routeDist = hasRoute ? routeDistances[warehouse.name][plant.name] : null;
+                        const straightDist = calculateDistance(plant.lat, plant.lng, warehouse.lat, warehouse.lng);
+                        return {
+                            plantName: plant.name,
+                            distance: hasRoute ? routeDist : straightDist,
+                            color: plant.color,
+                            isRoute: hasRoute,
+                            straightDist: straightDist
+                        };
+                    });
+
+                    const titleSize = Math.round(12 * labelScale);
+                    const textSize = Math.round(10 * labelScale);
+                    const smallTextSize = Math.round(9 * labelScale);
+                    const padding = Math.round(8 * labelScale);
+                    const minWidth = Math.round(140 * labelScale);
+                    const borderWidth = Math.max(1, Math.round(2 * labelScale));
+
+                    let labelContent =
+                        `<div style="background: white; padding: ${padding}px ${padding + 2}px; border-radius: ${Math.round(6 * labelScale)}px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); border: ${borderWidth}px solid #1018D8; min-width: ${minWidth}px; transform-origin: center; z-index: 1000;">
+                            <strong style="font-size: ${titleSize}px; color: #1A1A1A; display: block; margin-bottom: ${Math.round(4 * labelScale)}px; line-height: 1.2;">${warehouse.name}</strong>
+                            <div style="font-size: ${smallTextSize}px; color: #666; margin-bottom: ${Math.round(4 * labelScale)}px; line-height: 1.2;">Area: ${warehouse.area} sq ft</div>`;
+
+                    if (distances.length > 0) {
+                        labelContent +=
+                            `<hr style="margin: ${Math.round(4 * labelScale)}px 0; border: none; border-top: 1px solid #ddd;">
+                                <div style="font-weight: 600; font-size: ${textSize}px; margin-bottom: ${Math.round(3 * labelScale)}px; line-height: 1.2;">Distances:</div>`;
+
+                        distances.forEach(d => {
+                            const routeBadge = d.isRoute ?
+                                `<span style="font-size: ${Math.round(smallTextSize * 0.8)}px; background: #1018D8; color: white; padding: 1px 5px; border-radius: 8px; margin-left: 2px; display: inline-block;">🚗</span>` :
+                                '';
+                            labelContent +=
+                                `<div style="font-size: ${smallTextSize}px; color: ${d.color}; font-weight: 600; margin: ${Math.round(2 * labelScale)}px 0; line-height: 1.2;">
+                                    ${d.plantName}: ${d.distance.toFixed(1)} km ${routeBadge}
+                                </div>`;
+                        });
+                    }
+
+                    labelContent += `</div>`;
+
+                    const labelLat = warehouse.lat + 0.015;
+                    const labelLng = warehouse.lng + 0.015;
+
+                    const label = L.marker([labelLat, labelLng], {
+                        icon: L.divIcon({
+                            html: labelContent,
+                            className: 'distance-label',
+                            iconSize: null,
+                            iconAnchor: [70 * labelScale, -20]
+                        }),
+                        draggable: true,
+                        zIndexOffset: 1000
+                    }).addTo(map);
+
+                    label.on('dragstart', function() { this.setOpacity(0.7); });
+                    label.on('dragend', function() { this.setOpacity(1); });
+
+                    warehouseLabels.push(label);
+                });
+            }
+            document.getElementById('warehouseLabelCount').textContent = warehouseLabels.length;
+        }
+
+        function togglePopups() {
+            const enable = document.getElementById('showPopupsCheckbox').checked;
+            markers.forEach(marker => {
+                if (enable) {
+                    if (marker._popupContent) {
+                        marker.bindPopup(marker._popupContent);
+                    }
+                } else {
+                    marker.unbindPopup();
+                }
+            });
+        }
+
+        function updateLabelSize(value) {
+            labelScale = value / 100;
+            document.getElementById('labelSizeValue').textContent = value + '%';
+            if (map) {
+                if (document.getElementById('showPlantLabelsCheckbox').checked) togglePlantLabels();
+                if (document.getElementById('showWarehouseLabelsCheckbox').checked) toggleWarehouseLabels();
+            }
+        }
+
+        function resetDefaults() {
+            document.getElementById('plantEntries').innerHTML = '';
+            document.getElementById('warehouseEntries').innerHTML = '';
+            plantEntries = [];
+            warehouseEntries = [];
+            routesCalculated = false;
+            routeDistances = {};
+            currentRoutes = [];
+            routeLineLayers = [];
+            routeLabelLayers = [];
+            document.getElementById('routeStatusBadge').style.display = 'none';
+            addPlantEntry();
+            addWarehouseEntry();
+            generateMap();
+            showNotification('Reset complete. Add your coordinates and click Generate Map.', 'info');
+        }
+
+        function saveMap() {
+            const mapName = prompt('Enter a name for this map configuration:', 'Map ' + new Date().toLocaleDateString());
+            if (!mapName) return;
+
+            const plants = plantEntries.map((entry, idx) => {
+                const name = entry.element.querySelector('.plant-name').value || `Plant ${idx + 1}`;
+                const lat = entry.element.querySelector('.plant-lat').value;
+                const lng = entry.element.querySelector('.plant-lng').value;
+                return { name, lat, lng, color: entry.color };
+            }).filter(p => p.lat && p.lng);
+
+            const warehouses = warehouseEntries.map((entry, idx) => {
+                const name = entry.querySelector('.wh-name').value || `Warehouse ${idx + 1}`;
+                const lat = entry.querySelector('.wh-lat').value;
+                const lng = entry.querySelector('.wh-lng').value;
+                const area = entry.querySelector('.wh-area').value || '';
+                return { name, lat, lng, area };
+            }).filter(w => w.lat && w.lng);
+
+            const title = document.getElementById('mainTitle').textContent;
+            const subtitle = document.getElementById('mainSubtitle').textContent;
+
+            const mapData = {
+                name: mapName,
+                title,
+                subtitle,
+                plants,
+                warehouses,
+                savedDate: new Date().toISOString(),
+                showPlantLabels: document.getElementById('showPlantLabelsCheckbox').checked,
+                showWarehouseLabels: document.getElementById('showWarehouseLabelsCheckbox').checked,
+                labelScale
+            };
+
+            const savedMaps = JSON.parse(localStorage.getItem('savedMaps') || '[]');
+            savedMaps.push(mapData);
+            localStorage.setItem('savedMaps', JSON.stringify(savedMaps));
+            alert('✅ Map saved successfully!\n\nYou can now load it anytime or share it with customers.');
+        }
+
+        function loadSavedMaps() {
+            const savedMaps = JSON.parse(localStorage.getItem('savedMaps') || '[]');
+            const listContainer = document.getElementById('savedMapsList');
+
+            if (savedMaps.length === 0) {
+                listContainer.innerHTML = '<p style="text-align: center; color: #666; padding: 20px;">No saved maps yet. Create and save a map to see it here!</p>';
+            } else {
+                listContainer.innerHTML = '';
+                savedMaps.forEach((mapData, index) => {
+                    const item = document.createElement('div');
+                    item.className = 'saved-map-item';
+                    const saveDate = new Date(mapData.savedDate).toLocaleDateString();
+                    item.innerHTML = `
+                        <button class="saved-map-delete" onclick="deleteSavedMap(${index}); event.stopPropagation();">Delete</button>
+                        <div class="saved-map-name">${mapData.name}</div>
+                        <div class="saved-map-details">
+                            ${mapData.plants.length} Plant(s) • ${mapData.warehouses.length} Warehouse(s)<br>
+                            Saved: ${saveDate}
+                        </div>
+                    `;
+                    item.onclick = () => loadMapData(mapData);
+                    listContainer.appendChild(item);
+                });
+            }
+            document.getElementById('saveLoadModal').classList.add('show');
+        }
+
+        function closeSaveLoadModal() {
+            document.getElementById('saveLoadModal').classList.remove('show');
+        }
+
+        function deleteSavedMap(index) {
+            if (!confirm('Are you sure you want to delete this saved map?')) return;
+            const savedMaps = JSON.parse(localStorage.getItem('savedMaps') || '[]');
+            savedMaps.splice(index, 1);
+            localStorage.setItem('savedMaps', JSON.stringify(savedMaps));
+            loadSavedMaps();
+        }
+
+        function loadMapData(mapData) {
+            document.getElementById('mainTitle').textContent = mapData.title;
+            document.getElementById('mainSubtitle').textContent = mapData.subtitle;
+
+            labelScale = mapData.labelScale || 1.0;
+            document.getElementById('labelSizeSlider').value = Math.round(labelScale * 100);
+            document.getElementById('labelSizeValue').textContent = Math.round(labelScale * 100) + '%';
+
+            if (mapData.showPlantLabels !== undefined) {
+                document.getElementById('showPlantLabelsCheckbox').checked = mapData.showPlantLabels;
+            }
+            if (mapData.showWarehouseLabels !== undefined) {
+                document.getElementById('showWarehouseLabelsCheckbox').checked = mapData.showWarehouseLabels;
+            }
+
+            document.getElementById('plantEntries').innerHTML = '';
+            document.getElementById('warehouseEntries').innerHTML = '';
+            plantEntries = [];
+            warehouseEntries = [];
+
+            mapData.plants.forEach(plant => {
+                addPlantEntry();
+                const lastEntry = plantEntries[plantEntries.length - 1];
+                lastEntry.element.querySelector('.plant-name').value = plant.name;
+                lastEntry.element.querySelector('.plant-lat').value = plant.lat;
+                lastEntry.element.querySelector('.plant-lng').value = plant.lng;
+                if (plant.color) {
+                    lastEntry.color = plant.color;
+                    lastEntry.element.querySelector('div[style*="width: 16px"]').style.background = plant.color;
+                }
+            });
+
+            mapData.warehouses.forEach(warehouse => {
+                addWarehouseEntry();
+                const lastEntry = warehouseEntries[warehouseEntries.length - 1];
+                lastEntry.querySelector('.wh-name').value = warehouse.name;
+                lastEntry.querySelector('.wh-lat').value = warehouse.lat;
+                lastEntry.querySelector('.wh-lng').value = warehouse.lng;
+                lastEntry.querySelector('.wh-area').value = warehouse.area;
+            });
+
+            closeSaveLoadModal();
+
+            setTimeout(() => {
+                routesCalculated = false;
+                routeDistances = {};
+                currentRoutes = [];
+                routeLineLayers = [];
+                routeLabelLayers = [];
+                document.getElementById('routeStatusBadge').style.display = 'none';
+                generateMap();
+                alert('✅ Map loaded successfully!');
+            }, 300);
+        }
+
+        function exportToPDF() {
+            const settingsWrapper = document.getElementById('settingsWrapper');
+            const wasVisible = settingsWrapper.style.display !== 'none';
+            settingsWrapper.style.display = 'none';
+            setTimeout(() => {
+                window.print();
+                if (wasVisible) settingsWrapper.style.display = 'block';
+            }, 100);
+        }
+
+        function exportForCustomer() {
+            const plants = currentPlants;
+            const warehouses = currentWarehouses;
+            const title = document.getElementById('mainTitle').textContent;
+            const subtitle = document.getElementById('mainSubtitle').textContent;
+            const showPlantLabels = document.getElementById('showPlantLabelsCheckbox').checked;
+            const showWarehouseLabels = document.getElementById('showWarehouseLabelsCheckbox').checked;
+
+            const routeData = routesCalculated ? routeDistances : {};
+
+            const htmlContent = generateCustomerHTML(title, subtitle, plants, warehouses, showPlantLabels, showWarehouseLabels,
+                labelScale, routeData, routesCalculated);
+
+            const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${title.replace(/[^a-z0-9]/gi, '_')}_Customer_Map.html`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            alert('✅ Customer HTML file downloaded!\n\n• Clean interface without settings\n• All plants and warehouses included\n• Interactive map ready to share\n• Customer can view and explore');
+        }
+
+        function generateCustomerHTML(title, subtitle, plants, warehouses, showPlantLabels, showWarehouseLabels, labelSz,
+            routeData, hasRoutes) {
+            return `<!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${title}</title>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"><\/script>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background-color: #FFFFFF; color: #1A1A1A; padding: 20px; }
+                .container { max-width: 1400px; margin: 0 auto; }
+                .header { background: #FFFFFF; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-bottom: 2px solid #1018D8; }
+                .header-content { display: flex; align-items: center; gap: 15px; }
+                .header h1 { font-size: 28px; margin-bottom: 8px; color: #1A1A1A; font-weight: 700; }
+                .header p { color: #666666; font-size: 14px; }
+                .content-wrapper { display: grid; grid-template-columns: 1fr 320px; gap: 20px; }
+                #map { border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.12); height: 600px; background-color: #f5f5f5; }
+                .sidebar { display: flex; flex-direction: column; gap: 16px; }
+                .location-list { background: #FFFFFF; padding: 16px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); max-height: 650px; overflow-y: auto; }
+                .location-list h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #1A1A1A; }
+                .location-item { padding: 10px; margin-bottom: 8px; background-color: #f9f9f9; border-left: 3px solid #1018D8; border-radius: 3px; cursor: pointer; font-size: 11px; transition: background-color 0.2s; line-height: 1.4; }
+                .location-item:hover { background-color: #f0f0f0; }
+                .location-name { font-weight: 600; color: #1A1A1A; display: block; font-size: 12px; margin-bottom: 4px; }
+                .distance-grid { display: grid; grid-template-columns: 1fr; gap: 5px; margin-top: 6px; }
+                .distance-chip { background: #E8E8FC; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .distance-chip.route-calculated { background: #E8E8FC !important; color: #1018D8 !important; border-left-color: #1018D8 !important; }
+                .distance-chip.route-calculated::after { content: " 🚗"; font-size: 9px; }
+                .info-box { background: #FFFFFF; padding: 16px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-size: 11px; line-height: 1.6; }
+                .info-box p { margin-bottom: 8px; }
+                .distance-label { cursor: move !important; z-index: 1000 !important; pointer-events: all !important; }
+                .distance-label:hover { filter: drop-shadow(0 4px 12px rgba(0,0,0,0.2)); }
+                .route-badge { display: inline-block; background: #1018D8; color: white; font-size: 8px; padding: 1px 6px; border-radius: 10px; margin-left: 4px; font-weight: 600; }
+                .route-status { display: inline-block; background: #0fa4a4; color: white; font-size: 10px; padding: 2px 10px; border-radius: 12px; font-weight: 600; margin-left: 10px; }
+                @media (max-width: 768px) { .content-wrapper { grid-template-columns: 1fr; } #map { height: 400px; } }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <div class="header-content">
+                        <div>
+                            <h1>${title} ${hasRoutes ? '<span class="route-status">🚗 Routes Calculated</span>' : ''}</h1>
+                            <p>${subtitle}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="content-wrapper">
+                    <div id="map"></div>
+                    <div class="sidebar">
+                        <div class="location-list">
+                            <h3>📍 Plants</h3>
+                            <div id="plantsList"></div>
+                            <hr style="margin: 15px 0; border: none; border-top: 1px solid #e0e0e0;">
+                            <h3>🏢 Warehouses</h3>
+                            <div id="warehousesList"></div>
+                        </div>
+                        <div class="info-box">
+                            <p><strong>Plants:</strong> <span id="plantCount">0</span></p>
+                            <p><strong>Warehouses:</strong> <span id="warehouseCount">0</span></p>
+                            <p><strong>Total Distances:</strong> <span id="distanceCount">0</span></p>
+                            ${hasRoutes ? '<p style="color:#1018D8; font-weight:600;">🚗 Road distances calculated</p>' : ''}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <script>
+                const plants = ${JSON.stringify(plants)};
+                const warehouses = ${JSON.stringify(warehouses)};
+                const showPlantLabels = ${showPlantLabels};
+                const showWarehouseLabels = ${showWarehouseLabels};
+                const labelScale = ${labelSz};
+                const routeData = ${JSON.stringify(routeData)};
+                const hasRoutes = ${hasRoutes};
+                let map, markers = [], plantLabels = [], warehouseLabels = [];
+
+                function calcDist(lat1, lng1, lat2, lng2) {
+                    const R = 6371, dLat = (lat2-lat1)*Math.PI/180, dLng = (lng2-lng1)*Math.PI/180;
+                    const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
+                    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                }
+
+                function getDistance(plantName, warehouseName, straightDist) {
+                    if (hasRoutes && routeData[warehouseName] && routeData[warehouseName][plantName] !== undefined) {
+                        return { dist: routeData[warehouseName][plantName], isRoute: true };
+                    }
+                    return { dist: straightDist, isRoute: false };
+                }
+
+                function init() {
+                    let lats = [], lngs = [];
+                    if (plants.length > 0) { lats.push(...plants.map(p=>p.lat)); lngs.push(...plants.map(p=>p.lng)); }
+                    if (warehouses.length > 0) { lats.push(...warehouses.map(w=>w.lat)); lngs.push(...warehouses.map(w=>w.lng)); }
+                    let cLat = lats.length ? lats.reduce((a,b)=>a+b,0)/lats.length : 20.5937;
+                    let cLng = lngs.length ? lngs.reduce((a,b)=>a+b,0)/lngs.length : 78.9629;
+
+                    map = L.map('map').setView([cLat, cLng], 10);
+                    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {attribution:'© OpenStreetMap'}).addTo(map);
+
+                    const pList = document.getElementById('plantsList');
+                    plants.forEach((p, idx) => {
+                        const m = L.marker([p.lat, p.lng], {
+                            icon: L.divIcon({html:'<div style="font-size:32px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3));">🏭</div>', iconSize:[40,40]})
+                        }).addTo(map);
+                        m.bindPopup('<b>' + p.name + '</b><br>Plant Location');
+                        markers.push(m);
+
+                        if(showPlantLabels) {
+                            const ts=Math.round(12*labelScale), txs=Math.round(10*labelScale);
+                            const pd=Math.round(8*labelScale), mw=Math.round(100*labelScale), bw=Math.max(1,Math.round(2*labelScale));
+                            let lbl = '<div style="background:white;padding:'+pd+'px '+(pd+2)+'px;border-radius:'+Math.round(6*labelScale)+'px;box-shadow:0 2px 8px rgba(0,0,0,0.15);border:'+bw+'px solid '+p.color+';min-width:'+mw+'px;transform-origin:center;z-index:1000;">' +
+                                '<b style="font-size:'+ts+'px;color:'+p.color+';display:block;margin-bottom:'+Math.round(4*labelScale)+'px;line-height:1.2;">'+p.name+'</b>' +
+                                '<div style="font-size:'+txs+'px;color:#666;line-height:1.2;">Plant '+(idx+1)+'</div></div>';
+                            const lab = L.marker([p.lat+0.015, p.lng-0.015], {
+                                icon:L.divIcon({html:lbl, className:'distance-label', iconSize:null, iconAnchor:[50*labelScale,-20]}),
+                                draggable:true, zIndexOffset: 1000
+                            }).addTo(map);
+                            lab.on('dragstart', function(){this.setOpacity(0.7);});
+                            lab.on('dragend', function(){this.setOpacity(1);});
+                            plantLabels.push(lab);
+                        }
+
+                        const div = document.createElement('div');
+                        div.className = 'location-item';
+                        div.innerHTML = '<div style="display:flex;align-items:center;gap:6px;"><div style="width:12px;height:12px;background:'+p.color+';border-radius:50%;"></div><span class="location-name">'+p.name+'</span></div><div style="font-size:10px;color:#666;margin-top:2px;">'+p.lat.toFixed(4)+', '+p.lng.toFixed(4)+'</div>';
+                        div.onclick = () => { map.setView([p.lat,p.lng],13); m.openPopup(); };
+                        pList.appendChild(div);
+                    });
+
+                    const wList = document.getElementById('warehousesList');
+                    warehouses.forEach((w, idx) => {
+                        const dists = plants.map(p => {
+                            const sd = calcDist(p.lat,p.lng,w.lat,w.lng);
+                            const rd = getDistance(p.name, w.name, sd);
+                            return { name: p.name, dist: rd.dist, color: p.color, isRoute: rd.isRoute };
+                        });
+                        const m = L.marker([w.lat, w.lng], {
+                            icon: L.divIcon({html:'<div style="font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3));">🏢</div>', iconSize:[36,36]})
+                        }).addTo(map);
+                        let pop = '<b>'+w.name+'</b><br>Area: '+w.area+' sq ft';
+                        if (dists.length > 0) { pop += '<br><br><b>Distances:</b><br>'; dists.forEach(d => pop += d.name+': '+d.dist.toFixed(1)+' km'+(d.isRoute?' 🚗':'')+'<br>'); }
+                        m.bindPopup(pop);
+                        markers.push(m);
+
+                        if(showWarehouseLabels) {
+                            const ts=Math.round(12*labelScale), txs=Math.round(10*labelScale), ss=Math.round(9*labelScale);
+                            const pd=Math.round(8*labelScale), mw=Math.round(140*labelScale), bw=Math.max(1,Math.round(2*labelScale));
+                            let lbl = '<div style="background:white;padding:'+pd+'px '+(pd+2)+'px;border-radius:'+Math.round(6*labelScale)+'px;box-shadow:0 2px 8px rgba(0,0,0,0.15);border:'+bw+'px solid #1018D8;min-width:'+mw+'px;transform-origin:center;z-index:1000;">' +
+                                '<b style="font-size:'+ts+'px;color:#1A1A1A;display:block;margin-bottom:'+Math.round(4*labelScale)+'px;line-height:1.2;">'+w.name+'</b>' +
+                                '<div style="font-size:'+ss+'px;color:#666;margin-bottom:'+Math.round(4*labelScale)+'px;line-height:1.2;">Area: '+w.area+' sq ft</div>';
+                            if (dists.length > 0) {
+                                lbl += '<hr style="margin:'+Math.round(4*labelScale)+'px 0;border:none;border-top:1px solid #ddd;"><div style="font-weight:600;font-size:'+txs+'px;margin-bottom:'+Math.round(3*labelScale)+'px;line-height:1.2;">Distances:</div>';
+                                dists.forEach(d => {
+                                    const badge = d.isRoute ? '<span style="font-size:'+Math.round(ss*0.8)+'px;background:#1018D8;color:white;padding:1px 5px;border-radius:8px;margin-left:2px;display:inline-block;">🚗</span>' : '';
+                                    lbl += '<div style="font-size:'+ss+'px;color:'+d.color+';font-weight:600;margin:'+Math.round(2*labelScale)+'px 0;line-height:1.2;">'+d.name+': '+d.dist.toFixed(1)+' km '+badge+'</div>';
+                                });
+                            }
+                            lbl += '</div>';
+                            const lab = L.marker([w.lat+0.015, w.lng+0.015], {
+                                icon:L.divIcon({html:lbl, className:'distance-label', iconSize:null, iconAnchor:[70*labelScale,-20]}),
+                                draggable:true, zIndexOffset: 1000
+                            }).addTo(map);
+                            lab.on('dragstart', function(){this.setOpacity(0.7);});
+                            lab.on('dragend', function(){this.setOpacity(1);});
+                            warehouseLabels.push(lab);
+                        }
+
+                        const div = document.createElement('div');
+                        div.className = 'location-item';
+                        let dhtml = '';
+                        if (dists.length > 0) {
+                            dists.forEach(d => {
+                                const rc = d.isRoute ? 'route-calculated' : '';
+                                const badge = d.isRoute ? '<span class="route-badge">🚗</span>' : '';
+                                dhtml += '<div class="distance-chip '+rc+'" style="background-color:'+d.color+'20;color:'+d.color+';border-left:3px solid '+d.color+';">'+d.name+': '+d.dist.toFixed(1)+' km '+badge+'</div>';
+                            });
+                        }
+                        div.innerHTML = '<span class="location-name">'+w.name+'</span><div style="font-size:10px;color:#666;margin:2px 0;">Area: '+w.area+' sq ft</div>';
+                        if (dhtml) { div.innerHTML += '<div class="distance-grid">'+dhtml+'</div>'; }
+                        div.onclick = () => { map.setView([w.lat,w.lng],13); m.openPopup(); };
+                        wList.appendChild(div);
+                    });
+
+                    document.getElementById('plantCount').textContent = plants.length;
+                    document.getElementById('warehouseCount').textContent = warehouses.length;
+                    document.getElementById('distanceCount').textContent = plants.length * warehouses.length;
+                }
+                window.onload = init;
+            <\/script>
+        </body>
+        </html>`;
+        }
+
+        function shareableLink() {
+            const plants = currentPlants.map(p => ({ name: p.name, lat: p.lat, lng: p.lng, color: p.color }));
+            const warehouses = currentWarehouses.map(w => ({ name: w.name, lat: w.lat, lng: w.lng, area: w.area }));
+            const title = document.getElementById('mainTitle').textContent;
+            const subtitle = document.getElementById('mainSubtitle').textContent;
+
+            const data = {
+                title,
+                subtitle,
+                plants,
+                warehouses,
+                showPlantLabels: document.getElementById('showPlantLabelsCheckbox').checked,
+                showWarehouseLabels: document.getElementById('showWarehouseLabelsCheckbox').checked,
+                labelScale
+            };
+
+            const encoded = btoa(JSON.stringify(data));
+            const url = window.location.origin + window.location.pathname + '?data=' + encoded;
+
+            navigator.clipboard.writeText(url).then(() => {
+                alert('✅ Shareable link copied to clipboard!\n\nYou can paste this link to share your map configuration with customers.');
+            }).catch(() => {
+                prompt('Copy this shareable link:', url);
+            });
+        }
+
+        function loadFromURL() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const dataParam = urlParams.get('data');
+
+            if (dataParam) {
+                try {
+                    const data = JSON.parse(atob(dataParam));
+                    if (data.title) document.getElementById('mainTitle').textContent = data.title;
+                    if (data.subtitle) document.getElementById('mainSubtitle').textContent = data.subtitle;
+                    if (data.labelScale) {
+                        labelScale = data.labelScale;
+                        document.getElementById('labelSizeSlider').value = Math.round(labelScale * 100);
+                        document.getElementById('labelSizeValue').textContent = Math.round(labelScale * 100) + '%';
+                    }
+                    if (data.showPlantLabels !== undefined) {
+                        document.getElementById('showPlantLabelsCheckbox').checked = data.showPlantLabels;
+                    }
+                    if (data.showWarehouseLabels !== undefined) {
+                        document.getElementById('showWarehouseLabelsCheckbox').checked = data.showWarehouseLabels;
+                    }
+
+                    document.getElementById('plantEntries').innerHTML = '';
+                    document.getElementById('warehouseEntries').innerHTML = '';
+                    plantEntries = [];
+                    warehouseEntries = [];
+
+                    data.plants.forEach(plant => {
+                        addPlantEntry();
+                        const lastEntry = plantEntries[plantEntries.length - 1];
+                        lastEntry.element.querySelector('.plant-name').value = plant.name;
+                        lastEntry.element.querySelector('.plant-lat').value = plant.lat;
+                        lastEntry.element.querySelector('.plant-lng').value = plant.lng;
+                        if (plant.color) {
+                            lastEntry.color = plant.color;
+                            lastEntry.element.querySelector('div[style*="width: 16px"]').style.background = plant.color;
+                        }
+                    });
+
+                    data.warehouses.forEach(warehouse => {
+                        addWarehouseEntry();
+                        const lastEntry = warehouseEntries[warehouseEntries.length - 1];
+                        lastEntry.querySelector('.wh-name').value = warehouse.name;
+                        lastEntry.querySelector('.wh-lat').value = warehouse.lat;
+                        lastEntry.querySelector('.wh-lng').value = warehouse.lng;
+                        lastEntry.querySelector('.wh-area').value = warehouse.area;
+                    });
+
+                    setTimeout(() => {
+                        routesCalculated = false;
+                        routeDistances = {};
+                        currentRoutes = [];
+                        routeLineLayers = [];
+                        routeLabelLayers = [];
+                        document.getElementById('routeStatusBadge').style.display = 'none';
+                        generateMap();
+                    }, 500);
+                } catch (e) {
+                    console.error('Error loading data from URL:', e);
+                }
+            }
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `<strong>${type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ'}</strong> ${message}`;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 4000);
+        }
+
+        function clearRoutes() {
+            routeLayers.forEach(layer => map.removeLayer(layer));
+            routeLayers = [];
+            currentRoutes = [];
+            routesCalculated = false;
+            routeDistances = {};
+            routeLineLayers = [];
+            routeLabelLayers = [];
+            document.getElementById('routeStatusBadge').style.display = 'none';
+            document.getElementById('routeSummary').innerHTML =
+                '<p style="color: #999; text-align: center; padding: 5px; font-size: 11px;">Click "Calculate Routes" to see distances</p>';
+            document.getElementById('routeLegend').innerHTML = '';
+
+            if (map) {
+                toggleWarehouseLabels();
+                refreshWarehouseList();
+            }
+
+            showNotification('Routes cleared. Labels show straight-line distances.', 'info');
+        }
+
+        function refreshWarehouseList() {
+            const warehousesList = document.getElementById('warehousesList');
+            warehousesList.innerHTML = '';
+
+            currentWarehouses.forEach((warehouse, idx) => {
+                const distances = currentPlants.map(plant => {
+                    const hasRoute = routesCalculated && routeDistances[warehouse.name] && routeDistances[warehouse.name][plant.name] !== undefined;
+                    const routeDist = hasRoute ? routeDistances[warehouse.name][plant.name] : null;
+                    const straightDist = calculateDistance(plant.lat, plant.lng, warehouse.lat, warehouse.lng);
+                    return {
+                        plantName: plant.name,
+                        distance: hasRoute ? routeDist : straightDist,
+                        color: plant.color,
+                        isRoute: hasRoute
+                    };
+                });
+
+                const whItem = document.createElement('div');
+                whItem.className = 'location-item';
+
+                let distanceHTML = '';
+                if (distances.length > 0) {
+                    distances.forEach(d => {
+                        const routeClass = d.isRoute ? 'route-calculated' : '';
+                        const badge = d.isRoute ? '<span class="route-badge">🚗</span>' : '';
+                        distanceHTML +=
+                            `<div class="distance-chip ${routeClass}" style="background-color: ${d.color}20; color: ${d.color}; border-left: 3px solid ${d.color};">
+                                ${d.plantName}: ${d.distance.toFixed(1)} km ${badge}
+                            </div>`;
+                    });
+                }
+
+                whItem.innerHTML = `
+                    <span class="location-name">${warehouse.name}</span>
+                    <div style="font-size: 10px; color: #666; margin: 2px 0;">Area: ${warehouse.area} sq ft</div>`;
+                if (distanceHTML) {
+                    whItem.innerHTML += `<div class="distance-grid">${distanceHTML}</div>`;
+                }
+
+                whItem.onclick = () => {
+                    const marker = markers.find(m => {
+                        const pos = m.getLatLng();
+                        return Math.abs(pos.lat - warehouse.lat) < 0.0001 && Math.abs(pos.lng - warehouse.lng) < 0.0001;
+                    });
+                    if (marker) {
+                        map.setView([warehouse.lat, warehouse.lng], 13);
+                        marker.openPopup();
+                    }
+                };
+                warehousesList.appendChild(whItem);
+            });
+        }
+
+        function formatDuration(minutes) {
+            const hours = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            return hours > 0 ? `${hours}h ${mins}m` : `${mins} min`;
+        }
+
+        async function getRoute(from, to, profile) {
+            const osrmProfile = profile === 'truck' ? 'driving' : profile;
+            const url = `https://router.project-osrm.org/route/v1/${osrmProfile}/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.code === 'Ok' && data.routes.length > 0) {
+                    const route = data.routes[0];
+                    const distance = (route.distance / 1000).toFixed(1);
+                    const duration = Math.round(route.duration / 60);
+
+                    return {
+                        from: from.name,
+                        to: to.name,
+                        fromColor: from.color,
+                        distance: parseFloat(distance),
+                        duration: formatDuration(duration),
+                        geometry: route.geometry.coordinates.map(coord => [coord[1], coord[0]])
+                    };
+                }
+            } catch (error) {
+                console.warn(`Failed to get route:`, error);
+            }
+            return null;
+        }
+
+        async function calculateRoutes() {
+            updateLiveData();
+
+            if (currentPlants.length === 0 || currentWarehouses.length === 0) {
+                showNotification('Please add at least one plant and one warehouse', 'error');
+                return;
+            }
+
+            const pairs = [];
+            currentPlants.forEach(plant => {
+                currentWarehouses.forEach(wh => {
+                    pairs.push({ from: plant, to: wh });
+                });
+            });
+
+            routeLayers.forEach(layer => map.removeLayer(layer));
+            routeLayers = [];
+            currentRoutes = [];
+            routeDistances = {};
+            routeLineLayers = [];
+            routeLabelLayers = [];
+
+            const profile = document.getElementById('routeProfile').value;
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            const loadingStatus = document.getElementById('loadingStatus');
+
+            loadingOverlay.style.display = 'flex';
+
+            const allRoutes = [];
+            let completed = 0;
+
+            try {
+                for (const pair of pairs) {
+                    loadingStatus.textContent = `Calculating: ${pair.from.name} → ${pair.to.name} (${completed + 1}/${pairs.length})`;
+
+                    const route = await getRoute(pair.from, pair.to, profile);
+
+                    if (route) {
+                        allRoutes.push(route);
+
+                        if (!routeDistances[route.to]) {
+                            routeDistances[route.to] = {};
+                        }
+                        routeDistances[route.to][route.from] = route.distance;
+
+                        const routeColor = pair.from.color;
+
+                        const routeLine = L.polyline(route.geometry, {
+                            color: routeColor,
+                            weight: 3,
+                            opacity: 0.7
+                        }).addTo(map);
+
+                        routeLine.bindPopup(`
+                            <b>${pair.from.name} → ${pair.to.name}</b><br>
+                            <b>Distance: ${route.distance} km</b><br>
+                            Duration: ${route.duration}
+                        `);
+
+                        routeLayers.push(routeLine);
+                        routeLineLayers.push(routeLine);
+
+                        const midPoint = route.geometry[Math.floor(route.geometry.length / 2)];
+                        if (midPoint) {
+                            const label = L.marker(midPoint, {
+                                icon: L.divIcon({
+                                    html: `<div style="background: white; padding: 4px 8px; border-radius: 12px; font-size: 10px; font-weight: bold; color: ${routeColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.2); border: 1px solid ${routeColor};">${route.distance} km</div>`,
+                                    iconSize: null
+                                })
+                            }).addTo(map);
+                            routeLayers.push(label);
+                            routeLabelLayers.push(label);
+                        }
+                    }
+
+                    completed++;
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                }
+
+                currentRoutes = allRoutes;
+                routesCalculated = true;
+
+                document.getElementById('routeStatusBadge').style.display = 'inline-block';
+
+                updateRouteSummary();
+                updateRouteLegend();
+
+                if (document.getElementById('showWarehouseLabelsCheckbox').checked) {
+                    toggleWarehouseLabels();
+                }
+                refreshWarehouseList();
+
+                toggleRouteLines();
+                toggleRouteLabels();
+
+                showNotification(`Calculated ${allRoutes.length} routes successfully! Labels updated with road distances.`, 'success');
+            } catch (error) {
+                showNotification('Error calculating routes: ' + error.message, 'error');
+            } finally {
+                loadingOverlay.style.display = 'none';
+            }
+        }
+
+        function toggleRouteLines() {
+            const show = document.getElementById('showRouteLinesCheckbox').checked;
+            routeLineLayers.forEach(layer => {
+                if (show) {
+                    if (!map.hasLayer(layer)) map.addLayer(layer);
+                } else {
+                    if (map.hasLayer(layer)) map.removeLayer(layer);
+                }
+            });
+        }
+
+        function toggleRouteLabels() {
+            const show = document.getElementById('showRouteLabelsCheckbox').checked;
+            routeLabelLayers.forEach(layer => {
+                if (show) {
+                    if (!map.hasLayer(layer)) map.addLayer(layer);
+                } else {
+                    if (map.hasLayer(layer)) map.removeLayer(layer);
+                }
+            });
+        }
+
+        function updateRouteSummary() {
+            const summaryDiv = document.getElementById('routeSummary');
+
+            if (currentRoutes.length === 0) {
+                summaryDiv.innerHTML = '<p style="color: #999; text-align: center; padding: 5px; font-size: 11px;">No routes calculated</p>';
+                return;
+            }
+
+            const warehouseSummary = {};
+            let totalDistance = 0;
+
+            currentRoutes.forEach(route => {
+                if (!warehouseSummary[route.to]) {
+                    warehouseSummary[route.to] = { routes: [], totalDistance: 0 };
+                }
+                warehouseSummary[route.to].routes.push(route);
+                warehouseSummary[route.to].totalDistance += route.distance;
+                totalDistance += route.distance;
+            });
+
+            let html = '<div class="route-summary">';
+            html += '<h4 style="margin-bottom: 10px; font-size: 12px;">Distance from Plants to Warehouses 🚗</h4>';
+
+            Object.entries(warehouseSummary).forEach(([whName, data]) => {
+                html += `<div style="margin-bottom: 12px; padding: 8px; background: #E8E8FC; border-radius: 4px;">`;
+                html += `<strong style="color: #1018D8;">🏢 ${whName}</strong><br>`;
+
+                data.routes.forEach(route => {
+                    html += `
+                        <div class="summary-item">
+                            <span>← ${route.from}</span>
+                            <span style="font-weight: bold; color: ${route.fromColor};">${route.distance} km</span>
+                        </div>
+                    `;
+                });
+
+                html += `<div class="summary-item" style="margin-top: 5px; border-top: 1px dashed #ccc; padding-top: 5px;">
+                    <span>Total to ${whName}:</span>
+                    <span style="font-weight: bold;">${data.totalDistance.toFixed(1)} km</span>
+                </div>`;
+                html += `</div>`;
+            });
+
+            html += `
+                <div class="summary-total">
+                    <span>Overall Total Distance:</span>
+                    <span>${totalDistance.toFixed(1)} km</span>
+                </div>
+            </div>`;
+
+            summaryDiv.innerHTML = html;
+        }
+
+        function updateRouteLegend() {
+            const legendDiv = document.getElementById('routeLegend');
+            const uniqueFrom = [...new Set(currentRoutes.map(r => r.from))];
+
+            let html = '<h4 style="font-size: 11px; margin-bottom: 8px;">Route Colors:</h4>';
+            uniqueFrom.forEach(fromName => {
+                const route = currentRoutes.find(r => r.from === fromName);
+                html += `
+                    <div class="legend-item">
+                        <div class="legend-line" style="background: ${route.fromColor};"></div>
+                        <span>${fromName}</span>
+                    </div>
+                `;
+            });
+
+            legendDiv.innerHTML = html;
+        }
+
+        function exportRouteReport() {
+            if (currentRoutes.length === 0) {
+                showNotification('Please calculate routes first', 'warning');
+                return;
+            }
+
+            let report = `ROUTE DISTANCE REPORT\n${'='.repeat(50)}\n`;
+            report += `Generated: ${new Date().toLocaleString()}\n`;
+            report += `Route Type: ${document.getElementById('routeProfile').options[document.getElementById('routeProfile').selectedIndex].text}\n\n`;
+
+            report += `PLANTS:\n`;
+            currentPlants.forEach(p => { report += `  ${p.name}: ${p.lat}, ${p.lng}\n`; });
+
+            report += `\nWAREHOUSES:\n`;
+            currentWarehouses.forEach(w => { report += `  ${w.name} (${w.area} sq ft): ${w.lat}, ${w.lng}\n`; });
+
+            report += `\nROAD DISTANCES (km):\n${'='.repeat(50)}\n`;
+
+            const warehouseSummary = {};
+            let totalDistance = 0;
+
+            currentRoutes.forEach(r => {
+                if (!warehouseSummary[r.to]) warehouseSummary[r.to] = [];
+                warehouseSummary[r.to].push(r);
+                totalDistance += r.distance;
+            });
+
+            Object.entries(warehouseSummary).forEach(([wh, routes]) => {
+                report += `\n${wh}:\n`;
+                let whTotal = 0;
+                routes.forEach(r => {
+                    report += `  ← ${r.from}: ${r.distance} km (${r.duration})\n`;
+                    whTotal += r.distance;
+                });
+                report += `  Total to ${wh}: ${whTotal.toFixed(1)} km\n`;
+            });
+
+            report += `\n${'='.repeat(50)}\n`;
+            report += `OVERALL TOTAL: ${totalDistance.toFixed(1)} km\n`;
+
+            const blob = new Blob([report], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Distance_Report_${new Date().toISOString().split('T')[0]}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            showNotification('Distance report exported!', 'success');
+        }
+
+        let fullMap = false;
+        function toggleFullMap() {
+            const mapDiv = document.getElementById('map');
+            const sidebar = document.querySelector('.sidebar');
+            const contentWrapper = document.querySelector('.content-wrapper');
+            const exitBtn = document.getElementById('exitFullMapBtn');
+            const settingsToggle = document.querySelector('.settings-toggle');
+            const settingsWrapper = document.getElementById('settingsWrapper');
+
+            fullMap = !fullMap;
+            if (fullMap) {
+                mapDiv.classList.add('fullscreen');
+                contentWrapper.style.gridTemplateColumns = '1fr';
+                sidebar.style.display = 'none';
+                settingsToggle.style.display = 'none';
+                settingsWrapper.style.display = 'none';
+                exitBtn.classList.add('visible');
+            } else {
+                mapDiv.classList.remove('fullscreen');
+                contentWrapper.style.gridTemplateColumns = '1fr 320px';
+                sidebar.style.display = 'flex';
+                settingsToggle.style.display = 'flex';
+                settingsWrapper.style.display = 'block';
+                exitBtn.classList.remove('visible');
+            }
+            setTimeout(() => { map.invalidateSize(); }, 300);
+            showNotification(fullMap ? 'Full map view enabled' : 'Normal view restored', 'info');
+        }
+
+        window.onload = function() {
+            loadFromURL();
+
+            if (plantEntries.length === 0) addPlantEntry();
+            if (warehouseEntries.length === 0) addWarehouseEntry();
+
+            setTimeout(() => generateMap(), 100);
+        };
+    </script>
+
+    <style media="print">
+        @media print {
+            body {
+                padding: 0;
+                background: white;
+            }
+            .settings-toggle {
+                display: none !important;
+            }
+            #settingsWrapper {
+                display: none !important;
+            }
+            .header {
+                border-bottom: 2px solid #1018D8;
+                margin-bottom: 10px;
+                page-break-after: avoid;
+            }
+            .content-wrapper {
+                display: block;
+                page-break-inside: avoid;
+            }
+            #map {
+                height: 500px;
+                page-break-inside: avoid;
+                margin-bottom: 20px;
+            }
+            .sidebar {
+                page-break-before: avoid;
+            }
+        }
+    </style>
+</body>
+<div style="padding: 10px 20px; background: #f0f0f0;">
+    <a href="../index.html" style="color: #1018D8; text-decoration: none; font-weight: bold; font-size: 16px;">
+        ← Back to Tools
+    </a>
+    &nbsp;&nbsp;
+    <a href="cog-mapper.html" style="color: #1018D8; text-decoration: none; font-weight: bold; font-size: 16px;">
+        Switch to COG Tool →
+    </a>
+</div>
+</html>

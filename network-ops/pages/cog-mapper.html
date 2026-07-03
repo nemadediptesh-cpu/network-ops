@@ -1,0 +1,1793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>COG Mapping Tool - OSRM Distance & Cost Based (Linked COGs)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <!-- html2canvas & jsPDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <!-- SheetJS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    :root {
+      --bg: #FFFFFF;
+      --surface: #FFFFFF;
+      --text: #1A1A1A;
+      --text-secondary: #666666;
+      --primary: #1018D8;
+      --primary-light: #E8E8FC;
+      --primary-hover: #0B13B0;
+      --success: #0fa4a4;
+      --success-light: #ccfbf1;
+      --warning: #f59e0b;
+      --warning-light: #FEF3E0;
+      --error: #c0152f;
+      --error-light: #fee2e2;
+      --border: #D9D9D9;
+      --shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 16px;
+      line-height: 1.5;
+    }
+    .container { max-width: 1440px; margin:0 auto; }
+    .header {
+      background: linear-gradient(105deg, #000000 0%, #1018D8 100%);
+      padding: 24px 28px;
+      border-radius: 20px;
+      margin-bottom: 20px;
+      color: white;
+      box-shadow: 0 8px 20px rgba(16,24,216,0.25);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+    .header h1 { font-size: 1.9rem; font-weight: 600; display: flex; align-items: center; gap: 12px; }
+    .header p { font-size: 0.95rem; opacity: 0.9; }
+    .tabs {
+      display: flex;
+      background: var(--surface);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+      border: 1px solid var(--border);
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 16px 18px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      transition: 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border-bottom: 3px solid transparent;
+    }
+    .tab-btn:hover { background: #f8f8f8; color: var(--text); }
+    .tab-btn.active { color: var(--primary); background: var(--primary-light); border-bottom-color: var(--primary); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fade 0.25s ease; }
+    @keyframes fade { from { opacity:0; } to { opacity:1; } }
+    .content-grid { display: grid; grid-template-columns: 420px 1fr; gap: 20px; }
+    .panel {
+      background: var(--surface);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border);
+    }
+    .panel-title {
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--primary);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+    }
+    .btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 30px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: 0.2s;
+      box-shadow: 0 4px 10px rgba(16,24,216,0.2);
+    }
+    .btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-success { background: var(--success); }
+    .btn-success:hover { background: #0a8a8a; }
+    .btn-warning { background: var(--warning); color: #000000; }
+    .btn-warning:hover { background: #e08d00; }
+    .btn-danger { background: var(--error); }
+    .btn-small { padding: 6px 14px; font-size: 0.8rem; }
+    .btn-outline {
+      background: white;
+      color: var(--primary);
+      border: 2px solid var(--primary);
+      box-shadow: none;
+    }
+    .btn-outline:hover { background: var(--primary-light); }
+    .btn-highlight {
+      background: var(--success);
+      color: white;
+      border: none;
+      box-shadow: 0 4px 10px rgba(15,164,164,0.3);
+    }
+    .btn-highlight:hover { background: #0a8a8a; }
+    .btn-white {
+      background: white;
+      color: var(--primary);
+      border: 2px solid var(--border);
+      box-shadow: none;
+    }
+    .btn-white:hover { background: #f8f8f8; }
+    .btn-pdf {
+      background: var(--error);
+      color: white;
+      border: none;
+      box-shadow: 0 4px 10px rgba(192,21,47,0.3);
+    }
+    .btn-pdf:hover { background: #a01226; }
+    .map-container { padding: 0; overflow: hidden; position: relative; }
+    #distanceMap, #costMap { height: 580px; border-radius: 14px; border: 1px solid var(--border); }
+    .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+    .stat-item {
+      background: #f8f8f8;
+      padding: 12px;
+      border-radius: 14px;
+      border-left: 4px solid var(--primary);
+    }
+    .stat-label { font-size: 0.75rem; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; }
+    .stat-value { font-size: 1.4rem; font-weight: 700; color: #000000; }
+    .tariff-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    .tariff-table th { background: #f0f0f0; padding: 8px; text-align: left; font-size: 0.75rem; }
+    .tariff-table td { padding: 6px; border-bottom: 1px solid var(--border); }
+    .tariff-table input { width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 6px; font-size: 0.8rem; }
+    .cog-item {
+      background: #f9f9f9;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .cog-item:hover { background: #f0f0ff; border-color: var(--primary); }
+    
+    .loading-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    .loading-box {
+      background: white;
+      padding: 40px;
+      border-radius: 20px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      max-width: 400px;
+    }
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 5px solid var(--border);
+      border-top: 5px solid var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .status-msg { padding: 10px; border-radius: 10px; font-size: 0.85rem; margin-top: 10px; }
+    
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: var(--border);
+      border-radius: 4px;
+      margin-top: 16px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--primary);
+      border-radius: 4px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+    
+    .trip-badge {
+      background: #E8E8FC;
+      color: #1018D8;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    
+    .cost-breakdown {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+    
+    .cost-tag {
+      padding: 2px 8px;
+      border-radius: 8px;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+
+    .linked-badge {
+      background: #ccfbf1;
+      color: #0a8a8a;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .info-box {
+      background: #E8E8FC;
+      border-left: 4px solid #1018D8;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 0.85rem;
+    }
+    
+    .form-group {
+      margin-bottom: 16px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+    }
+    
+    @media (max-width: 850px) {
+      .content-grid { grid-template-columns: 1fr; }
+      #distanceMap, #costMap { height: 400px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <div>
+      <h1><i class="fas fa-map-pin"></i> COG Mapping Tool</h1>
+      <p><i class="fas fa-link"></i> Distance COG → Linked Cost COG | OSRM Road Distance | Trip-Weighted</p>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab(0)"><i class="fas fa-upload"></i> Setup & Data</button>
+    <button class="tab-btn" onclick="switchTab(1)"><i class="fas fa-ruler"></i> Distance COG</button>
+    <button class="tab-btn" onclick="switchTab(2)"><i class="fas fa-coins"></i> Cost COG</button>
+  </div>
+
+  <!-- TAB 0: Setup -->
+  <div id="tab-0" class="tab-content active">
+    <div class="content-grid">
+      <div class="panel">
+        <div class="panel-title"><i class="fas fa-file-csv"></i> 1. Upload Location Data</div>
+        <div style="border:2px dashed #D9D9D9; border-radius:16px; padding:20px; text-align:center; cursor:pointer;" 
+             onclick="document.getElementById('csvInput').click()">
+          <i class="fas fa-cloud-upload-alt" style="font-size:2rem; color:#1018D8;"></i>
+          <p style="margin:8px 0; font-weight:600;">Click to upload CSV</p>
+          <small style="color:#666666;">Columns: <b>Location Name, Latitude, Longitude, Volume(MT), Total Trips, Vehicle Type</b></small>
+        </div>
+        <input type="file" id="csvInput" accept=".csv" onchange="handleCSVUpload(event)" style="display:none;">
+        <div style="display:flex; gap:8px; margin-top:10px;">
+          <button class="btn" onclick="downloadTemplate()" style="flex:1;"><i class="fas fa-download"></i> Template</button>
+          <button class="btn btn-small" onclick="loadSampleData()" style="flex:1;"><i class="fas fa-database"></i> Sample Data</button>
+        </div>
+        <div id="uploadStatus"></div>
+
+        <div class="panel-title" style="margin-top:20px;"><i class="fas fa-tags"></i> 2. Tariff Master</div>
+        <div style="display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap;">
+          <button class="btn-small btn" onclick="addTariffRow()"><i class="fas fa-plus"></i> Add</button>
+          <button class="btn-small btn-success" onclick="saveTariffs()"><i class="fas fa-save"></i> Save</button>
+          <button class="btn-small" onclick="downloadTariffTemplate()"><i class="fas fa-download"></i> Template</button>
+          <button class="btn-small" onclick="document.getElementById('tariffFileInput').click()"><i class="fas fa-upload"></i> Import</button>
+          <input type="file" id="tariffFileInput" accept=".csv" onchange="handleTariffUpload(event)" style="display:none;">
+        </div>
+        <div style="max-height:250px; overflow-y:auto;">
+          <table class="tariff-table" id="tariffTable">
+            <thead><tr><th>Vehicle Type</th><th>Fixed ₹/Trip</th><th>Rate ₹/km</th><th>Fuel ₹/km</th><th></th></tr></thead>
+            <tbody id="tariffBody"></tbody>
+          </table>
+        </div>
+        <div id="tariffStatus"></div>
+
+        <div class="panel-title" style="margin-top:20px;"><i class="fas fa-cogs"></i> 3. Settings</div>
+        <div class="form-group">
+          <label><strong>Number of COG Centers (k)</strong></label>
+          <input type="number" id="kInput" value="2" min="1" max="8" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; font-size:1rem;">
+        </div>
+        <div class="form-group">
+          <label><strong>Number of Iterations</strong></label>
+          <input type="number" id="iterationsInput" value="5" min="1" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; font-size:1rem;">
+          <small style="color:#666666; display:block; margin-top:4px;">More iterations = better optimization but slower</small>
+        </div>
+        
+        <button class="btn btn-danger" style="width:100%; margin-top:10px;" onclick="resetAll()">
+          <i class="fas fa-trash-alt"></i> Reset All
+        </button>
+      </div>
+      
+      <div class="panel">
+        <div class="panel-title">
+          <i class="fas fa-table"></i> Data Preview 
+          <span id="dataCount" style="margin-left:auto; font-size:0.8rem; color:#666666;"></span>
+        </div>
+        <div style="max-height:500px; overflow-y:auto;">
+          <table class="tariff-table" id="dataPreviewTable">
+            <thead>
+              <tr><th>#</th><th>Location Name</th><th>Lat</th><th>Lng</th><th>Vol(MT)</th><th>Trips</th><th>Vehicle</th></tr>
+            </thead>
+            <tbody id="dataPreviewBody"></tbody>
+          </table>
+        </div>
+        <div id="dataStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 1: Distance COG -->
+  <div id="tab-1" class="tab-content">
+    <div class="content-grid">
+      <div class="panel">
+        <button class="btn btn-success" id="runDistanceBtn" style="width:100%; margin-bottom:16px; font-size:1rem;" 
+                onclick="runDistanceCOG()">
+          <i class="fas fa-play"></i> Run Distance-based COG
+        </button>
+
+        <div class="info-box">
+          <i class="fas fa-info-circle"></i> 
+          <strong>Step 1:</strong> Finds optimal COG centers by minimizing total road distance (weighted by trips).
+        </div>
+
+        <div class="panel-title"><i class="fas fa-chart-bar"></i> Distance Summary</div>
+        <div class="stats" id="distanceSummary">
+          <div class="stat-item">
+            <span class="stat-label"><i class="fas fa-road"></i> Total km</span>
+            <span class="stat-value" id="distTotalKm">0 km</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label"><i class="fas fa-exchange-alt"></i> Avg km/Trip</span>
+            <span class="stat-value" id="distAvgKm">0 km</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label"><i class="fas fa-bullseye"></i> COG Centers</span>
+            <span class="stat-value" id="distCogCount">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label"><i class="fas fa-truck"></i> Total Trips</span>
+            <span class="stat-value" id="distTotalTrips">0</span>
+          </div>
+        </div>
+
+        <div class="panel-title" style="margin-top:16px;">
+          <i class="fas fa-list"></i> COG Results
+        </div>
+        <div id="distanceCOGList" style="max-height:350px; overflow-y:auto;"></div>
+        
+        <div style="display:flex; gap:8px; margin-top:12px;">
+          <button class="btn btn-warning btn-small" onclick="exportDistanceToExcel()"><i class="fas fa-file-excel"></i> Excel</button>
+          <button class="btn btn-pdf btn-small" onclick="exportDistanceToPDF()"><i class="fas fa-file-pdf"></i> PDF Report</button>
+        </div>
+      </div>
+      <div class="panel map-container"><div id="distanceMap"></div></div>
+    </div>
+  </div>
+
+  <!-- TAB 2: Cost COG (Linked) -->
+  <div id="tab-2" class="tab-content">
+    <div class="content-grid">
+      <div class="panel">
+        <div class="info-box" style="background:#ccfbf1; border-left-color:#0fa4a4; margin-bottom:12px;">
+          <i class="fas fa-link"></i> 
+          <strong>Linked Mode:</strong> Uses the SAME COG centers from Distance COG. 
+          Assigns locations to minimize <strong>cost</strong> (not distance).
+        </div>
+
+        <div id="costCOGStatus" style="margin-bottom:12px;"></div>
+
+        <button class="btn btn-white" id="runCostBtn" style="width:100%; margin-bottom:8px; font-size:1rem;" 
+                onclick="runCostCOG()">
+          <i class="fas fa-play"></i> Calculate Cost (Using Distance COG Centers)
+        </button>
+        
+        <button class="btn btn-highlight" id="runCostIndependentBtn" style="width:100%; margin-bottom:16px; font-size:0.85rem;" 
+                onclick="runCostCOGIndependent()">
+          <i class="fas fa-cogs"></i> Alternative: Run Independent Cost-Optimized COG
+        </button>
+
+        <div class="panel-title"><i class="fas fa-chart-bar"></i> Cost Summary</div>
+        <div class="stats" id="costSummary">
+          <div class="stat-item">
+            <span class="stat-label"><i class="fas fa-rupee-sign"></i> Total Cost</span>
+            <span class="stat-value" id="costTotal">₹0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label"><i class="fas fa-calculator"></i> Avg Cost/Trip</span>
+            <span class="stat-value" id="costAvg">₹0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label"><i class="fas fa-anchor"></i> Fixed Cost</span>
+            <span class="stat-value" id="costFixed">₹0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label"><i class="fas fa-chart-line"></i> Variable Cost</span>
+            <span class="stat-value" id="costVariable">₹0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label"><i class="fas fa-bullseye"></i> COG Centers</span>
+            <span class="stat-value" id="costCogCount">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label"><i class="fas fa-truck"></i> Total Trips</span>
+            <span class="stat-value" id="costTotalTrips">0</span>
+          </div>
+        </div>
+
+        <div class="panel-title" style="margin-top:16px;">
+          <i class="fas fa-list"></i> Cost Results
+        </div>
+        <div id="costCOGList" style="max-height:300px; overflow-y:auto;"></div>
+        
+        <div style="display:flex; gap:8px; margin-top:12px;">
+          <button class="btn btn-warning btn-small" onclick="exportCostToExcel()"><i class="fas fa-file-excel"></i> Excel</button>
+          <button class="btn btn-pdf btn-small" onclick="exportCostToPDF()"><i class="fas fa-file-pdf"></i> PDF Report</button>
+        </div>
+      </div>
+      <div class="panel map-container"><div id="costMap"></div></div>
+    </div>
+  </div>
+</div>
+
+<div style="padding: 10px 20px; background: #f0f0f0; margin-top: 20px; max-width: 1440px; margin-left: auto; margin-right: auto;">
+    <a href="../index.html" style="color: #1018D8; text-decoration: none; font-weight: bold; font-size: 16px;">
+        ← Back to Tools
+    </a>
+    &nbsp;&nbsp;
+    <a href="distance-mapper.html" style="color: #1018D8; text-decoration: none; font-weight: bold; font-size: 16px;">
+        Switch to Distance Mapper →
+    </a>
+</div>
+
+<script>  // ============ GLOBAL STATE ============
+  let distanceMap, costMap;
+  let allLocations = [];
+  let vehicleTariff = {};
+  let distanceResults = null;
+  let costResults = null;
+  let costResultsIndependent = null;
+  let distanceMarkers = [], costMarkers = [];
+  let isProcessing = false;
+  let costMode = 'linked';
+
+  // ============ OSRM CONFIG ============
+  const OSRM_BASE = 'https://router.project-osrm.org';
+
+  // ============ INITIALIZATION ============
+  document.addEventListener('DOMContentLoaded', () => {
+    loadTariffs();
+    initMaps();
+    loadSampleData();
+  });
+
+  function initMaps() {
+    distanceMap = L.map('distanceMap', { zoomControl: true }).setView([22.5, 78.5], 5);
+    costMap = L.map('costMap', { zoomControl: true }).setView([22.5, 78.5], 5);
+    
+    [distanceMap, costMap].forEach(m => {
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap, © CartoDB'
+      }).addTo(m);
+    });
+  }
+
+  function loadSampleData() {
+    allLocations = [
+      { name: 'Mumbai Warehouse', lat: 19.0760, lng: 72.8777, volume: 500, trips: 25, vehicleType: '20 ft' },
+      { name: 'Delhi NCR Hub', lat: 28.7041, lng: 77.1025, volume: 750, trips: 35, vehicleType: '32 ft' },
+      { name: 'Bangalore Depot', lat: 12.9716, lng: 77.5946, volume: 600, trips: 30, vehicleType: '20 ft' },
+      { name: 'Chennai Center', lat: 13.0827, lng: 80.2707, volume: 450, trips: 22, vehicleType: '40 ft' },
+      { name: 'Kolkata Hub', lat: 22.5726, lng: 88.3639, volume: 550, trips: 28, vehicleType: '32 ft' },
+      { name: 'Hyderabad Facility', lat: 17.3850, lng: 78.4867, volume: 400, trips: 20, vehicleType: '20 ft' },
+      { name: 'Ahmedabad Unit', lat: 23.0225, lng: 72.5714, volume: 350, trips: 18, vehicleType: '32 ft' },
+      { name: 'Pune Plant', lat: 18.5204, lng: 73.8567, volume: 300, trips: 15, vehicleType: '20 ft' },
+      { name: 'Jaipur Depot', lat: 26.9124, lng: 75.7873, volume: 280, trips: 14, vehicleType: '40 ft' },
+      { name: 'Lucknow Center', lat: 26.8467, lng: 80.9462, volume: 320, trips: 16, vehicleType: '32 ft' },
+      { name: 'Nagpur Hub', lat: 21.1458, lng: 79.0882, volume: 380, trips: 19, vehicleType: '20 ft' },
+      { name: 'Indore Facility', lat: 22.7196, lng: 75.8577, volume: 270, trips: 13, vehicleType: '32 ft' }
+    ];
+    renderDataPreview();
+    showStatus('uploadStatus', '✅ Sample data loaded (12 locations)', 'success');
+  }
+
+  function switchTab(idx) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`tab-${idx}`).classList.add('active');
+    document.querySelectorAll('.tab-btn')[idx].classList.add('active');
+    
+    setTimeout(() => {
+      if (distanceMap) distanceMap.invalidateSize();
+      if (costMap) costMap.invalidateSize();
+    }, 200);
+    
+    if (idx === 2) {
+      updateCostCOGStatus();
+    }
+  }
+
+  function showLoading(show, message = 'Processing...') {
+    const existing = document.getElementById('loadingOverlay');
+    if (show) {
+      if (!existing) {
+        const overlay = document.createElement('div');
+        overlay.id = 'loadingOverlay';
+        overlay.className = 'loading-overlay';
+        overlay.innerHTML = `
+          <div class="loading-box">
+            <div class="spinner"></div>
+            <p style="font-weight:600; font-size:1.1rem;">${message}</p>
+            <p style="color:#666666; font-size:0.85rem; margin-top:8px;">Fetching real road distances from OSRM...</p>
+            <div class="progress-bar">
+              <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <p style="color:#666666; font-size:0.75rem; margin-top:8px;" id="progressText">Initializing...</p>
+          </div>
+        `;
+        document.body.appendChild(overlay);
+      }
+      isProcessing = true;
+      document.querySelectorAll('.btn-success, .btn-outline, .btn-highlight, .btn-white, .btn-pdf').forEach(b => b.disabled = true);
+    } else {
+      if (existing) existing.remove();
+      isProcessing = false;
+      document.querySelectorAll('.btn-success, .btn-outline, .btn-highlight, .btn-white, .btn-pdf').forEach(b => b.disabled = false);
+    }
+  }
+
+  function updateProgress(percent, text = '') {
+    const fill = document.getElementById('progressFill');
+    const textEl = document.getElementById('progressText');
+    if (fill) fill.style.width = Math.min(100, percent) + '%';
+    if (textEl && text) textEl.textContent = text;
+  }
+
+  function updateCostCOGStatus() {
+    const statusEl = document.getElementById('costCOGStatus');
+    if (!statusEl) return;
+    
+    if (distanceResults && distanceResults.length > 0) {
+      statusEl.innerHTML = `
+        <div class="linked-badge" style="padding:8px 12px; display:block;">
+          <i class="fas fa-check-circle"></i> 
+          <strong>Linked to Distance COG</strong> — ${distanceResults.length} COG centers available. 
+          Cost calculation will use these same centers.
+        </div>`;
+    } else {
+      statusEl.innerHTML = `
+        <div style="background:#FEF3E0; border-left:4px solid #f59e0b; padding:8px 12px; border-radius:8px; font-size:0.85rem;">
+          <i class="fas fa-exclamation-triangle"></i> 
+          <strong>No Distance COG results yet.</strong> Please run Distance COG first, or use "Independent Cost-Optimized COG".
+        </div>`;
+    }
+  }
+
+  // ============ TARIFFS ============
+  function loadTariffs() {
+    const stored = localStorage.getItem('cog_tariffs_v5');
+    vehicleTariff = stored ? JSON.parse(stored) : {
+      '20 ft': { fixed: 4000, rateKm: 35, fuelKm: 4 },
+      '32 ft': { fixed: 4500, rateKm: 38, fuelKm: 4.5 },
+      '40 ft': { fixed: 5000, rateKm: 40, fuelKm: 5 }
+    };
+    renderTariffTable();
+  }
+
+  function renderTariffTable() {
+    const tbody = document.getElementById('tariffBody');
+    tbody.innerHTML = '';
+    Object.entries(vehicleTariff).forEach(([veh, t]) => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td><input value="${veh}" onchange="updateTariffKey('${veh}', this.value)" style="width:100%;"></td>
+        <td><input type="number" value="${t.fixed}" onchange="updateTariffVal('${veh}','fixed',this.value)" style="width:100%;"></td>
+        <td><input type="number" value="${t.rateKm}" onchange="updateTariffVal('${veh}','rateKm',this.value)" style="width:100%;"></td>
+        <td><input type="number" value="${t.fuelKm}" onchange="updateTariffVal('${veh}','fuelKm',this.value)" style="width:100%;"></td>
+        <td><button class="btn-small btn-danger" onclick="deleteTariff('${veh}')"><i class="fas fa-trash"></i></button></td>
+      `;
+      tbody.appendChild(row);
+    });
+  }
+
+  window.addTariffRow = function() {
+    const name = prompt('Vehicle type (e.g., 14 ft, TRAILER):');
+    if (!name) return;
+    vehicleTariff[name.toLowerCase().trim()] = { fixed: 3000, rateKm: 30, fuelKm: 3 };
+    renderTariffTable();
+  };
+
+  window.updateTariffKey = function(oldKey, newKey) {
+    if (!newKey || oldKey === newKey) return;
+    const cleanKey = newKey.toLowerCase().trim();
+    vehicleTariff[cleanKey] = vehicleTariff[oldKey];
+    delete vehicleTariff[oldKey];
+    renderTariffTable();
+  };
+
+  window.updateTariffVal = function(veh, field, val) {
+    if (vehicleTariff[veh]) vehicleTariff[veh][field] = parseFloat(val) || 0;
+  };
+
+  window.deleteTariff = function(veh) {
+    if (confirm(`Delete tariff for ${veh}?`)) {
+      delete vehicleTariff[veh];
+      renderTariffTable();
+    }
+  };
+
+  window.saveTariffs = function() {
+    localStorage.setItem('cog_tariffs_v5', JSON.stringify(vehicleTariff));
+    showStatus('tariffStatus', '✅ Tariffs saved', 'success');
+  };
+
+  window.downloadTariffTemplate = function() {
+    let csv = 'Vehicle Type,Fixed Charge/Trip (₹),Rate/KM (₹/km),Fuel Charge/KM (₹/km)\n';
+    csv += '20 ft,4000,35,4\n32 ft,4500,38,4.5\n40 ft,5000,40,5';
+    downloadFile(csv, 'tariff_template.csv');
+    showStatus('tariffStatus', '✅ Template downloaded', 'success');
+  };
+
+  window.handleTariffUpload = function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const lines = ev.target.result.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) return;
+      vehicleTariff = {};
+      lines.slice(1).forEach(line => {
+        const cols = line.split(',').map(c => c.trim());
+        if (cols.length >= 4) {
+          vehicleTariff[cols[0].toLowerCase().trim()] = { 
+            fixed: +cols[1] || 0, rateKm: +cols[2] || 0, fuelKm: +cols[3] || 0 
+          };
+        }
+      });
+      renderTariffTable();
+      showStatus('tariffStatus', '✅ Tariffs imported', 'success');
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  // ============ CSV UPLOAD ============
+  window.downloadTemplate = function() {
+    let csv = 'Location Name,Latitude,Longitude,Volume(MT),Total Trips,Vehicle Type\n';
+    csv += 'Mumbai Warehouse,19.0760,72.8777,500,25,20 ft\n';
+    csv += 'Delhi NCR Hub,28.7041,77.1025,750,35,32 ft\n';
+    csv += 'Bangalore Depot,12.9716,77.5946,600,30,20 ft';
+    downloadFile(csv, 'location_data_template.csv');
+    showStatus('uploadStatus', '✅ Template downloaded', 'success');
+  };
+
+  window.handleCSVUpload = function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const text = ev.target.result;
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) {
+        showStatus('uploadStatus', '❌ CSV is empty', 'error');
+        return;
+      }
+      
+      const header = lines[0].split(',').map(h => h.trim().toLowerCase());
+      const nameIdx = header.findIndex(h => h.includes('name') || h.includes('location'));
+      const latIdx = header.findIndex(h => h.includes('lat'));
+      const lngIdx = header.findIndex(h => h.includes('lng') || h.includes('long'));
+      const volIdx = header.findIndex(h => h.includes('volume'));
+      const tripsIdx = header.findIndex(h => h.includes('trip'));
+      const vehIdx = header.findIndex(h => h.includes('vehicle'));
+      
+      if (nameIdx === -1 || latIdx === -1 || lngIdx === -1) {
+        showStatus('uploadStatus', '❌ Missing: Location Name, Latitude, Longitude', 'error');
+        return;
+      }
+      
+      allLocations = [];
+      let validCount = 0;
+      
+      lines.slice(1).forEach((line, idx) => {
+        const c = line.split(',').map(x => x.trim());
+        if (c.length < Math.max(nameIdx, latIdx, lngIdx) + 1) return;
+        
+        const lat = parseFloat(c[latIdx]);
+        const lng = parseFloat(c[lngIdx]);
+        if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) return;
+        
+        allLocations.push({
+          name: c[nameIdx] || `Location ${idx + 1}`,
+          lat, lng,
+          volume: volIdx >= 0 ? (parseFloat(c[volIdx]) || 0) : 0,
+          trips: tripsIdx >= 0 ? Math.max(1, parseInt(c[tripsIdx]) || 1) : 1,
+          vehicleType: vehIdx >= 0 ? (c[vehIdx] || '20 ft').toLowerCase().trim() : '20 ft'
+        });
+        validCount++;
+      });
+      
+      renderDataPreview();
+      const totalTrips = allLocations.reduce((s, l) => s + l.trips, 0);
+      showStatus('uploadStatus', `✅ Loaded ${validCount} locations (${totalTrips} trips)`, 'success');
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  function renderDataPreview() {
+    const tbody = document.getElementById('dataPreviewBody');
+    const countEl = document.getElementById('dataCount');
+    
+    if (allLocations.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px;">No data</td></tr>';
+      countEl.textContent = '';
+      document.getElementById('dataStatus').innerHTML = '';
+      return;
+    }
+    
+    const totalTrips = allLocations.reduce((s, l) => s + l.trips, 0);
+    countEl.textContent = `${allLocations.length} locations | ${totalTrips} trips`;
+    
+    tbody.innerHTML = allLocations.slice(0, 20).map((l, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td><strong>${l.name}</strong></td>
+        <td>${l.lat.toFixed(4)}</td>
+        <td>${l.lng.toFixed(4)}</td>
+        <td>${l.volume.toFixed(0)}</td>
+        <td><span class="trip-badge">${l.trips}</span></td>
+        <td><span style="background:#E8E8FC; padding:2px 8px; border-radius:10px;">${l.vehicleType}</span></td>
+      </tr>
+    `).join('');
+    
+    const vehicleTypes = [...new Set(allLocations.map(l => l.vehicleType))];
+    const missingTariffs = vehicleTypes.filter(v => !vehicleTariff[v]);
+    
+    document.getElementById('dataStatus').innerHTML = missingTariffs.length > 0 ?
+      `<span class="status-msg" style="background:#FEF3E0;">⚠️ Missing tariffs: ${missingTariffs.join(', ')}</span>` :
+      `<span class="status-msg" style="background:#E8E8FC;">✅ All tariffs configured</span>`;
+  }
+
+  // ============ OSRM DISTANCE FUNCTIONS ============
+  function haversineKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  async function getOSRMDistanceBatch(sources, destinations) {
+    if (sources.length === 0 || destinations.length === 0) return [[]];
+    
+    const allCoords = [...sources, ...destinations];
+    const coordStr = allCoords.map(c => `${c.lng},${c.lat}`).join(';');
+    const url = `${OSRM_BASE}/table/v1/driving/${coordStr}?annotations=distance`;
+    
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      if (!data.distances) throw new Error('No distances');
+      
+      const srcCount = sources.length;
+      const result = [];
+      for (let i = 0; i < srcCount; i++) {
+        const row = [];
+        for (let j = 0; j < destinations.length; j++) {
+          const dist = data.distances[i][srcCount + j];
+          row.push(dist !== null ? dist / 1000 : haversineKm(sources[i].lat, sources[i].lng, destinations[j].lat, destinations[j].lng));
+        }
+        result.push(row);
+      }
+      return result;
+    } catch (error) {
+      console.warn('OSRM fallback:', error.message);
+      return sources.map(s => destinations.map(d => haversineKm(s.lat, s.lng, d.lat, d.lng)));
+    }
+  }
+
+  function weightedCOG(locations) {
+    if (!locations || locations.length === 0) return null;
+    let sumW = 0, sumLat = 0, sumLng = 0;
+    locations.forEach(loc => {
+      const w = (loc.trips && loc.trips > 0) ? loc.trips : 1;
+      sumW += w;
+      sumLat += w * loc.lat;
+      sumLng += w * loc.lng;
+    });
+    return sumW > 0 ? { lat: sumLat / sumW, lng: sumLng / sumW } : null;
+  }
+
+  async function kMeansWithOSRM(locations, k, maxIterations = 5) {
+    if (locations.length === 0 || k <= 0) return [];
+    if (k >= locations.length) return locations.map(l => ({ lat: l.lat, lng: l.lng }));
+    
+    let centers = [];
+    const firstIdx = Math.floor(Math.random() * locations.length);
+    centers.push({ lat: locations[firstIdx].lat, lng: locations[firstIdx].lng });
+    
+    for (let i = 1; i < k; i++) {
+      const dists = locations.map(loc => Math.min(...centers.map(c => haversineKm(loc.lat, loc.lng, c.lat, c.lng))));
+      const totalDist = dists.reduce((a, b) => a + b, 0);
+      let rand = Math.random() * totalDist;
+      let selectedIdx = 0;
+      for (let j = 0; j < dists.length; j++) {
+        rand -= dists[j];
+        if (rand <= 0) { selectedIdx = j; break; }
+      }
+      centers.push({ lat: locations[selectedIdx].lat, lng: locations[selectedIdx].lng });
+    }
+    
+    updateProgress(10, 'Initializing clusters...');
+    
+    for (let iter = 0; iter < maxIterations; iter++) {
+      updateProgress(10 + (iter / maxIterations) * 60, `Iteration ${iter + 1}/${maxIterations}...`);
+      
+      const distMatrix = await getOSRMDistanceBatch(locations, centers);
+      const clusters = Array(k).fill(null).map(() => []);
+      
+      locations.forEach((loc, i) => {
+        let minDist = Infinity, minIdx = 0;
+        distMatrix[i].forEach((d, j) => { if (d < minDist) { minDist = d; minIdx = j; } });
+        clusters[minIdx].push(loc);
+      });
+      
+      const newCenters = clusters.map(cluster => cluster.length ? (weightedCOG(cluster) || centers[0]) : centers[0]);
+      
+      let maxMovement = 0;
+      for (let i = 0; i < k; i++) {
+        const movement = haversineKm(centers[i].lat, centers[i].lng, newCenters[i].lat, newCenters[i].lng);
+        if (movement > maxMovement) maxMovement = movement;
+      }
+      
+      centers = newCenters;
+      if (maxMovement < 0.5) break;
+    }
+    
+    updateProgress(80, 'Clustering complete...');
+    return centers;
+  }
+
+  // ============ DISTANCE COG ============
+  window.runDistanceCOG = async function() {
+    if (isProcessing) { alert('Please wait for current operation to finish.'); return; }
+    if (allLocations.length === 0) { alert('Please load data first.'); return; }
+    
+    const k = Math.min(parseInt(document.getElementById('kInput').value) || 2, allLocations.length);
+    const iterations = Math.max(1, parseInt(document.getElementById('iterationsInput').value) || 5);
+    
+    showLoading(true, `Running Distance-based COG (${iterations} iterations)`);
+    updateProgress(0, 'Starting...');
+    
+    try {
+      const centers = await kMeansWithOSRM(allLocations, k, iterations);
+      updateProgress(80, 'Computing final distances...');
+      
+      const distMatrix = await getOSRMDistanceBatch(allLocations, centers);
+      updateProgress(95, 'Assigning locations...');
+      
+      const clusters = Array(k).fill(null).map(() => []);
+      allLocations.forEach((loc, i) => {
+        let minDist = Infinity, minIdx = 0;
+        distMatrix[i].forEach((d, j) => { if (d < minDist) { minDist = d; minIdx = j; } });
+        clusters[minIdx].push({ ...loc, distanceToCOG: distMatrix[i][minIdx] });
+      });
+      
+      distanceResults = clusters.map((locs, idx) => {
+        const totalDistKm = locs.reduce((sum, loc) => sum + loc.distanceToCOG * loc.trips, 0);
+        const totalTrips = locs.reduce((sum, loc) => sum + loc.trips, 0);
+        return {
+          label: `COG-${idx + 1}`,
+          center: centers[idx],
+          locations: locs,
+          totalDistanceKm: totalDistKm,
+          totalTrips: totalTrips,
+          totalVolume: locs.reduce((sum, loc) => sum + (loc.volume || 0), 0),
+          avgDistancePerTrip: totalTrips > 0 ? totalDistKm / totalTrips : 0,
+          uniqueLocationCount: new Set(locs.map(l => l.name)).size
+        };
+      });
+      
+      updateProgress(100, 'Done!');
+      renderDistanceUI();
+      switchTab(1);
+      
+      costResults = null;
+      costResultsIndependent = null;
+      updateCostCOGStatus();
+      
+      showStatus('uploadStatus', `✅ Distance COG complete (${iterations} iterations). Cost COG now linked to these centers.`, 'success');
+    } catch (error) {
+      console.error(error);
+      alert('Error: ' + error.message);
+    } finally {
+      showLoading(false);
+    }
+  };
+
+  function renderDistanceUI() {
+    if (!distanceResults) return;
+    
+    const totalKm = distanceResults.reduce((s, r) => s + r.totalDistanceKm, 0);
+    const totalTrips = distanceResults.reduce((s, r) => s + r.totalTrips, 0);
+    
+    document.getElementById('distTotalKm').textContent = totalKm.toFixed(0) + ' km';
+    document.getElementById('distAvgKm').textContent = (totalTrips > 0 ? totalKm / totalTrips : 0).toFixed(1) + ' km';
+    document.getElementById('distCogCount').textContent = distanceResults.length;
+    document.getElementById('distTotalTrips').textContent = totalTrips;
+    
+    const colors = ['#c0152f', '#f59e0b', '#0fa4a4', '#1018D8', '#000000', '#666666'];
+    
+    document.getElementById('distanceCOGList').innerHTML = distanceResults.map((cog, idx) => `
+      <div class="cog-item" style="border-left:4px solid ${colors[idx % colors.length]};" onclick="zoomToCOG('distance', ${idx})">
+        <strong style="color:${colors[idx % colors.length]};">${cog.label}</strong>
+        <div style="margin-top:6px; font-size:0.85rem;">
+          <div>📍 ${cog.uniqueLocationCount} locations | 🚛 ${cog.totalTrips} trips</div>
+          <div>📏 ${cog.totalDistanceKm.toFixed(0)} km | 📊 ${cog.avgDistancePerTrip.toFixed(1)} km/trip</div>
+          <div>⚖️ ${cog.totalVolume.toFixed(0)} MT</div>
+        </div>
+      </div>
+    `).join('');
+    
+    renderDistanceMap();
+  }
+
+  function renderDistanceMap() {
+    if (!distanceMap || !distanceResults) return;
+    distanceMarkers.forEach(m => distanceMap.removeLayer(m));
+    distanceMarkers = [];
+    
+    const colors = ['#c0152f', '#f59e0b', '#0fa4a4', '#1018D8', '#000000', '#666666'];
+    const allCoords = [];
+    
+    distanceResults.forEach((cog, idx) => {
+      const color = colors[idx % colors.length];
+      
+      cog.locations.forEach(loc => {
+        const radius = Math.max(6, Math.min(20, 4 + loc.trips * 0.5));
+        const m = L.circleMarker([loc.lat, loc.lng], { radius, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.7 }).addTo(distanceMap);
+        m.bindPopup(`<b>${loc.name}</b><br>Distance: ${loc.distanceToCOG?.toFixed(1)} km<br>Trips: ${loc.trips}<br>Total km: ${(loc.distanceToCOG * loc.trips).toFixed(0)}`);
+        distanceMarkers.push(m);
+        allCoords.push([loc.lat, loc.lng]);
+      });
+      
+      const icon = L.divIcon({
+        html: `<div style="background:${color};color:white;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:16px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">${idx+1}</div>`,
+        iconSize: [36, 36], iconAnchor: [18, 18]
+      });
+      
+      const m = L.marker([cog.center.lat, cog.center.lng], { icon }).addTo(distanceMap);
+      m.bindPopup(`<b>${cog.label}</b><br>${cog.totalTrips} trips<br>${cog.totalDistanceKm.toFixed(0)} km`);
+      distanceMarkers.push(m);
+      allCoords.push([cog.center.lat, cog.center.lng]);
+    });
+    
+    if (allCoords.length) distanceMap.fitBounds(L.latLngBounds(allCoords), { padding: [50, 50] });
+  }
+
+  // ============ COST COG (LINKED) ============
+  window.runCostCOG = async function() {
+    if (isProcessing) { alert('Please wait.'); return; }
+    if (allLocations.length === 0) { alert('Please load data first.'); return; }
+    
+    if (!distanceResults || distanceResults.length === 0) {
+      alert('⚠️ Please run Distance COG first!\n\nThe Cost COG is designed to use the same COG centers found by Distance COG. This allows you to see the cost implications of your distance-optimized centers.\n\nAlternatively, use "Independent Cost-Optimized COG" button below.');
+      return;
+    }
+    
+    const vehicleTypes = [...new Set(allLocations.map(l => l.vehicleType))];
+    const missingTariffs = vehicleTypes.filter(v => !vehicleTariff[v]);
+    if (missingTariffs.length > 0) {
+      alert(`Missing tariffs for: ${missingTariffs.join(', ')}`);
+      return;
+    }
+    
+    costMode = 'linked';
+    showLoading(true, 'Calculating Costs (Linked to Distance COG)');
+    updateProgress(0, 'Using existing COG centers...');
+    
+    try {
+      const centers = distanceResults.map(r => r.center);
+      
+      updateProgress(30, 'Computing distance matrix...');
+      const distMatrix = await getOSRMDistanceBatch(allLocations, centers);
+      
+      updateProgress(70, 'Assigning by cost...');
+      
+      const clusters = Array(centers.length).fill(null).map(() => []);
+      
+      allLocations.forEach((loc, i) => {
+        let bestCost = Infinity, bestIdx = 0;
+        
+        distMatrix[i].forEach((dist, j) => {
+          const tariff = vehicleTariff[loc.vehicleType];
+          if (!tariff) return;
+          const costPerTrip = tariff.fixed + (tariff.rateKm + tariff.fuelKm) * dist;
+          const totalCost = costPerTrip * loc.trips;
+          
+          if (totalCost < bestCost) {
+            bestCost = totalCost;
+            bestIdx = j;
+          }
+        });
+        
+        const dist = distMatrix[i][bestIdx];
+        const tariff = vehicleTariff[loc.vehicleType];
+        const costPerTrip = tariff.fixed + (tariff.rateKm + tariff.fuelKm) * dist;
+        
+        clusters[bestIdx].push({
+          ...loc,
+          distanceToCOG: dist,
+          costPerTrip,
+          totalCost: costPerTrip * loc.trips,
+          totalFixedCost: tariff.fixed * loc.trips,
+          totalVariableCost: (tariff.rateKm + tariff.fuelKm) * dist * loc.trips
+        });
+      });
+      
+      costResults = clusters.map((locs, idx) => {
+        const totalCost = locs.reduce((s, l) => s + l.totalCost, 0);
+        const totalTrips = locs.reduce((s, l) => s + l.trips, 0);
+        return {
+          label: `COG-${idx + 1}`,
+          center: centers[idx],
+          locations: locs,
+          totalCost,
+          totalFixedCost: locs.reduce((s, l) => s + l.totalFixedCost, 0),
+          totalVariableCost: locs.reduce((s, l) => s + l.totalVariableCost, 0),
+          totalTrips,
+          totalDistanceKm: locs.reduce((s, l) => s + l.distanceToCOG * l.trips, 0),
+          totalVolume: locs.reduce((s, l) => s + (l.volume || 0), 0),
+          avgCostPerTrip: totalTrips > 0 ? totalCost / totalTrips : 0,
+          uniqueLocationCount: new Set(locs.map(l => l.name)).size
+        };
+      });
+      
+      costResultsIndependent = null;
+      updateProgress(100, 'Done!');
+      renderCostUI();
+      switchTab(2);
+      showStatus('uploadStatus', '✅ Cost calculated using Distance COG centers', 'success');
+    } catch (error) {
+      console.error(error);
+      alert('Error: ' + error.message);
+    } finally {
+      showLoading(false);
+    }
+  };
+
+  // ============ COST COG (INDEPENDENT) ============
+  window.runCostCOGIndependent = async function() {
+    if (isProcessing) { alert('Please wait.'); return; }
+    if (allLocations.length === 0) { alert('Please load data first.'); return; }
+    
+    const vehicleTypes = [...new Set(allLocations.map(l => l.vehicleType))];
+    const missingTariffs = vehicleTypes.filter(v => !vehicleTariff[v]);
+    if (missingTariffs.length > 0) {
+      alert(`Missing tariffs for: ${missingTariffs.join(', ')}`);
+      return;
+    }
+    
+    if (!confirm('This will find NEW COG centers optimized for COST (not distance). These may differ from Distance COG centers. Continue?')) return;
+    
+    costMode = 'independent';
+    const k = Math.min(parseInt(document.getElementById('kInput').value) || 2, allLocations.length);
+    const iterations = Math.max(1, parseInt(document.getElementById('iterationsInput').value) || 5);
+    
+    showLoading(true, `Running Independent Cost-Optimized COG (${iterations} iterations)`);
+    updateProgress(0, 'Finding cost-optimal centers...');
+    
+    try {
+      let centers = await kMeansWithOSRM(allLocations, k, iterations);
+      
+      for (let iter = 0; iter < 3; iter++) {
+        updateProgress(60 + iter * 10, `Cost refinement ${iter + 1}/3...`);
+        
+        const distMatrix = await getOSRMDistanceBatch(allLocations, centers);
+        const clusters = Array(k).fill(null).map(() => []);
+        
+        allLocations.forEach((loc, i) => {
+          let bestCost = Infinity, bestIdx = 0;
+          distMatrix[i].forEach((dist, j) => {
+            const tariff = vehicleTariff[loc.vehicleType];
+            if (!tariff) return;
+            const cost = (tariff.fixed + (tariff.rateKm + tariff.fuelKm) * dist) * loc.trips;
+            if (cost < bestCost) { bestCost = cost; bestIdx = j; }
+          });
+          clusters[bestIdx].push(loc);
+        });
+        
+        centers = clusters.map(cluster => cluster.length ? (weightedCOG(cluster) || centers[0]) : centers[0]);
+      }
+      
+      updateProgress(85, 'Final assignment...');
+      const distMatrix = await getOSRMDistanceBatch(allLocations, centers);
+      const clusters = Array(k).fill(null).map(() => []);
+      
+      allLocations.forEach((loc, i) => {
+        let bestCost = Infinity, bestIdx = 0;
+        distMatrix[i].forEach((dist, j) => {
+          const tariff = vehicleTariff[loc.vehicleType];
+          if (!tariff) return;
+          const cost = (tariff.fixed + (tariff.rateKm + tariff.fuelKm) * dist) * loc.trips;
+          if (cost < bestCost) { bestCost = cost; bestIdx = j; }
+        });
+        
+        const dist = distMatrix[i][bestIdx];
+        const tariff = vehicleTariff[loc.vehicleType];
+        clusters[bestIdx].push({
+          ...loc,
+          distanceToCOG: dist,
+          costPerTrip: tariff.fixed + (tariff.rateKm + tariff.fuelKm) * dist,
+          totalCost: (tariff.fixed + (tariff.rateKm + tariff.fuelKm) * dist) * loc.trips,
+          totalFixedCost: tariff.fixed * loc.trips,
+          totalVariableCost: (tariff.rateKm + tariff.fuelKm) * dist * loc.trips
+        });
+      });
+      
+      costResultsIndependent = clusters.map((locs, idx) => {
+        const totalCost = locs.reduce((s, l) => s + l.totalCost, 0);
+        const totalTrips = locs.reduce((s, l) => s + l.trips, 0);
+        return {
+          label: `COG-${idx + 1}`,
+          center: centers[idx],
+          locations: locs,
+          totalCost,
+          totalFixedCost: locs.reduce((s, l) => s + l.totalFixedCost, 0),
+          totalVariableCost: locs.reduce((s, l) => s + l.totalVariableCost, 0),
+          totalTrips,
+          totalDistanceKm: locs.reduce((s, l) => s + l.distanceToCOG * l.trips, 0),
+          totalVolume: locs.reduce((s, l) => s + (l.volume || 0), 0),
+          avgCostPerTrip: totalTrips > 0 ? totalCost / totalTrips : 0,
+          uniqueLocationCount: new Set(locs.map(l => l.name)).size
+        };
+      });
+      
+      costResults = costResultsIndependent;
+      
+      updateProgress(100, 'Done!');
+      renderCostUI();
+      switchTab(2);
+      showStatus('uploadStatus', `✅ Independent cost-optimized COG complete (${iterations} iterations)`, 'success');
+    } catch (error) {
+      console.error(error);
+      alert('Error: ' + error.message);
+    } finally {
+      showLoading(false);
+    }
+  };
+
+  function renderCostUI() {
+    const results = costResults;
+    if (!results) return;
+    
+    const totalCost = results.reduce((s, r) => s + r.totalCost, 0);
+    const totalFixed = results.reduce((s, r) => s + r.totalFixedCost, 0);
+    const totalVariable = results.reduce((s, r) => s + r.totalVariableCost, 0);
+    const totalTrips = results.reduce((s, r) => s + r.totalTrips, 0);
+    
+    document.getElementById('costTotal').textContent = '₹' + totalCost.toFixed(0);
+    document.getElementById('costAvg').textContent = '₹' + (totalTrips > 0 ? totalCost / totalTrips : 0).toFixed(0);
+    document.getElementById('costFixed').textContent = '₹' + totalFixed.toFixed(0);
+    document.getElementById('costVariable').textContent = '₹' + totalVariable.toFixed(0);
+    document.getElementById('costCogCount').textContent = results.length;
+    document.getElementById('costTotalTrips').textContent = totalTrips;
+    
+    const colors = ['#c0152f', '#f59e0b', '#0fa4a4', '#1018D8', '#000000', '#666666'];
+    
+    const modeBadge = costMode === 'linked' ? 
+      '<span class="linked-badge"><i class="fas fa-link"></i> Linked to Distance COG</span>' :
+      '<span style="background:#FEF3E0;color:#b45309;padding:2px 8px;border-radius:10px;font-size:0.7rem;"><i class="fas fa-cogs"></i> Independent</span>';
+    
+    document.getElementById('costCOGList').innerHTML = results.map((cog, idx) => `
+      <div class="cog-item" style="border-left:4px solid ${colors[idx % colors.length]};" onclick="zoomToCOG('cost', ${idx})">
+        <strong style="color:${colors[idx % colors.length]};">${cog.label}</strong> ${modeBadge}
+        <div style="margin-top:6px; font-size:0.85rem;">
+          <div>📍 ${cog.uniqueLocationCount} locations | 🚛 ${cog.totalTrips} trips</div>
+          <div>💰 <b>₹${cog.totalCost.toFixed(0)}</b> | 📊 ₹${cog.avgCostPerTrip.toFixed(0)}/trip</div>
+          <div>📏 ${cog.totalDistanceKm.toFixed(0)} km</div>
+          <div class="cost-breakdown">
+            <span class="cost-tag" style="background:#fee2e2;color:#c0152f;">Fixed: ₹${cog.totalFixedCost.toFixed(0)}</span>
+            <span class="cost-tag" style="background:#E8E8FC;color:#1018D8;">Variable: ₹${cog.totalVariableCost.toFixed(0)}</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
+    
+    renderCostMap();
+    updateCostCOGStatus();
+  }
+
+  function renderCostMap() {
+    if (!costMap || !costResults) return;
+    costMarkers.forEach(m => costMap.removeLayer(m));
+    costMarkers = [];
+    
+    const colors = ['#c0152f', '#f59e0b', '#0fa4a4', '#1018D8', '#000000', '#666666'];
+    const allCoords = [];
+    
+    costResults.forEach((cog, idx) => {
+      const color = colors[idx % colors.length];
+      
+      cog.locations.forEach(loc => {
+        const radius = Math.max(6, Math.min(20, 4 + loc.trips * 0.5));
+        const m = L.circleMarker([loc.lat, loc.lng], { radius, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.7 }).addTo(costMap);
+        m.bindPopup(`<b>${loc.name}</b><br>Dist: ${loc.distanceToCOG?.toFixed(1)} km<br>Trips: ${loc.trips}<br>Cost/trip: ₹${loc.costPerTrip?.toFixed(0)}<br><b>Total: ₹${loc.totalCost?.toFixed(0)}</b>`);
+        costMarkers.push(m);
+        allCoords.push([loc.lat, loc.lng]);
+      });
+      
+      const icon = L.divIcon({
+        html: `<div style="background:${color};color:white;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:16px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">${idx+1}</div>`,
+        iconSize: [36, 36], iconAnchor: [18, 18]
+      });
+      
+      const m = L.marker([cog.center.lat, cog.center.lng], { icon }).addTo(costMap);
+      m.bindPopup(`<b>${cog.label}</b><br>₹${cog.totalCost.toFixed(0)}<br>${cog.totalTrips} trips<br>${costMode === 'linked' ? '🔗 Linked to Distance COG' : '⚙️ Independent'}`);
+      costMarkers.push(m);
+      allCoords.push([cog.center.lat, cog.center.lng]);
+    });
+    
+    if (allCoords.length) costMap.fitBounds(L.latLngBounds(allCoords), { padding: [50, 50] });
+  }
+
+  window.zoomToCOG = function(type, idx) {
+    const results = type === 'distance' ? distanceResults : costResults;
+    const map = type === 'distance' ? distanceMap : costMap;
+    if (!results || !results[idx] || !map) return;
+    
+    const cog = results[idx];
+    const coords = cog.locations.map(l => [l.lat, l.lng]);
+    coords.push([cog.center.lat, cog.center.lng]);
+    map.fitBounds(L.latLngBounds(coords), { padding: [50, 50], maxZoom: 12 });
+  };
+
+  // ============ PROFESSIONAL PDF EXPORT ============
+  
+  async function generatePDFReport(type) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('p', 'mm', 'a4');
+    
+    const results = type === 'distance' ? distanceResults : costResults;
+    if (!results) {
+      alert(`Run ${type === 'distance' ? 'Distance' : 'Cost'} COG first`);
+      return null;
+    }
+    
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 15;
+    const contentWidth = pageWidth - 2 * margin;
+    
+    const primaryColor = [16, 24, 216];
+    const accentColor = [15, 164, 164];
+    const lightGray = [217, 217, 217];
+    const textDark = [26, 26, 26];
+    const textGray = [102, 102, 102];
+    
+    const addHeader = (doc, pageNum) => {
+      doc.setFillColor(0, 0, 0);
+      doc.rect(0, 0, pageWidth, 25, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      doc.text('COG MAPPING REPORT', margin, 16);
+      
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      const subtitle = type === 'distance' ? 'Distance-Optimized Center of Gravity Analysis' : 'Cost-Optimized Center of Gravity Analysis';
+      doc.text(subtitle, margin, 22);
+      
+      doc.setTextColor(...textGray);
+      doc.setFontSize(8);
+      const dateStr = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      doc.text(`Generated: ${dateStr}`, pageWidth - margin - 50, 10);
+      doc.text(`Page ${pageNum}`, pageWidth - margin - 15, 10, { align: 'right' });
+      
+      doc.setDrawColor(...primaryColor);
+      doc.setLineWidth(0.5);
+      doc.line(margin, 28, pageWidth - margin, 28);
+    };
+    
+    const addFooter = (doc) => {
+      doc.setFillColor(...lightGray);
+      doc.rect(0, pageHeight - 12, pageWidth, 12, 'F');
+      
+      doc.setTextColor(...textGray);
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'italic');
+      doc.text('Confidential | Prepared by COG Mapping Tool | Powered by OSRM Road Distance Data', margin, pageHeight - 5);
+      doc.text('For any queries, please contact the planning team', pageWidth - margin, pageHeight - 5, { align: 'right' });
+    };
+    
+    const drawSummaryCards = (doc, y, cards) => {
+      const cardWidth = contentWidth / cards.length - 4;
+      const cardHeight = 28;
+      
+      cards.forEach((card, i) => {
+        const x = margin + i * (cardWidth + 4);
+        
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(217, 217, 217);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(x, y, cardWidth, cardHeight, 3, 3, 'FD');
+        
+        doc.setFillColor(...primaryColor);
+        doc.rect(x, y, 3, cardHeight, 'F');
+        
+        doc.setTextColor(...textGray);
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.text(card.label, x + 7, y + 10);
+        
+        doc.setTextColor(...textDark);
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.text(card.value, x + 7, y + 22);
+      });
+      
+      return y + cardHeight + 8;
+    };
+    
+    const drawTable = (doc, y, headers, rows, colWidths) => {
+      const rowHeight = 8;
+      const headerHeight = 10;
+      
+      doc.setFillColor(...primaryColor);
+      doc.rect(margin, y, contentWidth, headerHeight, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'bold');
+      
+      let xPos = margin + 2;
+      headers.forEach((header, i) => {
+        doc.text(header, xPos, y + 7);
+        xPos += colWidths[i];
+      });
+      
+      y += headerHeight;
+      
+      rows.forEach((row, rowIdx) => {
+        const bgColor = rowIdx % 2 === 0 ? [248, 248, 248] : [255, 255, 255];
+        doc.setFillColor(...bgColor);
+        doc.rect(margin, y, contentWidth, rowHeight, 'F');
+        
+        doc.setTextColor(...textDark);
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        
+        xPos = margin + 2;
+        row.forEach((cell, cellIdx) => {
+          doc.text(String(cell), xPos, y + 5.5);
+          xPos += colWidths[cellIdx];
+        });
+        
+        y += rowHeight;
+        
+        if (y > pageHeight - 30 && rowIdx < rows.length - 1) {
+          addFooter(doc);
+          doc.addPage();
+          addHeader(doc, doc.internal.getNumberOfPages());
+          y = 35;
+          
+          doc.setFillColor(...primaryColor);
+          doc.rect(margin, y, contentWidth, headerHeight, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.setFontSize(7.5);
+          doc.setFont('helvetica', 'bold');
+          xPos = margin + 2;
+          headers.forEach((header, i) => {
+            doc.text(header, xPos, y + 7);
+            xPos += colWidths[i];
+          });
+          y += headerHeight;
+        }
+      });
+      
+      return y + 5;
+    };
+    
+    addHeader(doc, 1);
+    
+    let y = 35;
+    
+    doc.setTextColor(...textDark);
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    const reportTitle = type === 'distance' ? 'Distance COG Analysis' : 'Cost COG Analysis';
+    doc.text(reportTitle, margin, y);
+    y += 12;
+    
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...textGray);
+    const modeText = type === 'cost' ? (costMode === 'linked' ? 'Linked to Distance COG Centers' : 'Independent Cost-Optimized Centers') : '';
+    doc.text(`Center of Gravity Optimization Report ${modeText}`, margin, y);
+    y += 15;
+    
+    let summaryCards;
+    if (type === 'distance') {
+      const totalKm = results.reduce((s, r) => s + r.totalDistanceKm, 0);
+      const totalTrips = results.reduce((s, r) => s + r.totalTrips, 0);
+      summaryCards = [
+        { label: 'TOTAL DISTANCE', value: `${totalKm.toFixed(0)} km` },
+        { label: 'AVG DISTANCE/TRIP', value: `${(totalTrips > 0 ? totalKm / totalTrips : 0).toFixed(1)} km` },
+        { label: 'COG CENTERS', value: `${results.length}` },
+        { label: 'TOTAL TRIPS', value: `${totalTrips}` }
+      ];
+    } else {
+      const totalCost = results.reduce((s, r) => s + r.totalCost, 0);
+      const totalTrips = results.reduce((s, r) => s + r.totalTrips, 0);
+      const totalFixed = results.reduce((s, r) => s + r.totalFixedCost, 0);
+      const totalVariable = results.reduce((s, r) => s + r.totalVariableCost, 0);
+      summaryCards = [
+        { label: 'TOTAL COST', value: `₹${totalCost.toFixed(0)}` },
+        { label: 'AVG COST/TRIP', value: `₹${(totalTrips > 0 ? totalCost / totalTrips : 0).toFixed(0)}` },
+        { label: 'FIXED COST', value: `₹${totalFixed.toFixed(0)}` },
+        { label: 'VARIABLE COST', value: `₹${totalVariable.toFixed(0)}` }
+      ];
+    }
+    
+    y = drawSummaryCards(doc, y, summaryCards);
+    y += 5;
+    
+    doc.setFillColor(...lightGray);
+    doc.roundedRect(margin, y, contentWidth, 30, 3, 3, 'F');
+    
+    doc.setTextColor(...textDark);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Analysis Parameters', margin + 5, y + 10);
+    
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...textGray);
+    const k = parseInt(document.getElementById('kInput').value) || 2;
+    const iterations = parseInt(document.getElementById('iterationsInput').value) || 5;
+    const totalLocations = allLocations.length;
+    doc.text(`COG Centers (k): ${k}  |  Iterations: ${iterations}  |  Locations Analyzed: ${totalLocations}  |  Algorithm: k-Means with OSRM Road Distances`, margin + 5, y + 20);
+    
+    y += 40;
+    
+    doc.setTextColor(...textDark);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('COG Center Summary', margin, y);
+    y += 8;
+    
+    const cogSummaryHeaders = type === 'distance' ? 
+      ['COG', 'Center (Lat, Lng)', 'Locations', 'Trips', 'Total km', 'Avg km/Trip', 'Volume (MT)'] :
+      ['COG', 'Center (Lat, Lng)', 'Locations', 'Trips', 'Total Cost', 'Avg Cost/Trip', 'Total km'];
+    
+    const cogSummaryColWidths = type === 'distance' ?
+      [15, 40, 20, 18, 28, 28, 25] :
+      [15, 40, 20, 18, 28, 28, 28];
+    
+    const cogSummaryRows = results.map((cog, idx) => {
+      const centerStr = `${cog.center.lat.toFixed(4)}, ${cog.center.lng.toFixed(4)}`;
+      if (type === 'distance') {
+        return [
+          cog.label, centerStr, String(cog.uniqueLocationCount), String(cog.totalTrips),
+          `${cog.totalDistanceKm.toFixed(0)} km`, `${cog.avgDistancePerTrip.toFixed(1)} km`, `${cog.totalVolume.toFixed(0)} MT`
+        ];
+      } else {
+        return [
+          cog.label, centerStr, String(cog.uniqueLocationCount), String(cog.totalTrips),
+          `₹${cog.totalCost.toFixed(0)}`, `₹${cog.avgCostPerTrip.toFixed(0)}`, `${cog.totalDistanceKm.toFixed(0)} km`
+        ];
+      }
+    });
+    
+    y = drawTable(doc, y, cogSummaryHeaders, cogSummaryRows, cogSummaryColWidths);
+    y += 8;
+    
+    addFooter(doc);
+    
+    results.forEach((cog, cogIdx) => {
+      doc.addPage();
+      addHeader(doc, doc.internal.getNumberOfPages());
+      
+      y = 35;
+      
+      const colors = ['#c0152f', '#f59e0b', '#0fa4a4', '#1018D8', '#000000', '#666666'];
+      const cogColor = colors[cogIdx % colors.length];
+      
+      doc.setFillColor(parseInt(cogColor.slice(1,3), 16), parseInt(cogColor.slice(3,5), 16), parseInt(cogColor.slice(5,7), 16));
+      doc.roundedRect(margin, y, 5, 18, 2, 2, 'F');
+      
+      doc.setTextColor(...textDark);
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${cog.label}: Detailed Breakdown`, margin + 10, y + 7);
+      
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...textGray);
+      doc.text(`Center: ${cog.center.lat.toFixed(4)}, ${cog.center.lng.toFixed(4)} | ${cog.uniqueLocationCount} locations | ${cog.totalTrips} trips`, margin + 10, y + 15);
+      
+      y += 25;
+      
+      let miniCards;
+      if (type === 'distance') {
+        miniCards = [
+          { label: 'Total km', value: `${cog.totalDistanceKm.toFixed(0)} km` },
+          { label: 'Avg km/Trip', value: `${cog.avgDistancePerTrip.toFixed(1)} km` },
+          { label: 'Volume', value: `${cog.totalVolume.toFixed(0)} MT` }
+        ];
+      } else {
+        miniCards = [
+          { label: 'Total Cost', value: `₹${cog.totalCost.toFixed(0)}` },
+          { label: 'Avg Cost/Trip', value: `₹${cog.avgCostPerTrip.toFixed(0)}` },
+          { label: 'Total km', value: `${cog.totalDistanceKm.toFixed(0)} km` }
+        ];
+      }
+      
+      y = drawSummaryCards(doc, y, miniCards);
+      y += 5;
+      
+      const detailHeaders = type === 'distance' ?
+        ['#', 'Location', 'Latitude', 'Longitude', 'Dist (km)', 'Trips', 'Total km', 'Vehicle'] :
+        ['#', 'Location', 'Dist (km)', 'Trips', 'Cost/Trip', 'Total Cost', 'Fixed Cost', 'Variable'];
+      
+      const detailColWidths = type === 'distance' ?
+        [10, 42, 22, 22, 20, 16, 22, 20] :
+        [10, 34, 20, 16, 24, 24, 24, 24];
+      
+      const detailRows = cog.locations.map((loc, i) => {
+        if (type === 'distance') {
+          return [
+            String(i + 1), loc.name, loc.lat.toFixed(4), loc.lng.toFixed(4),
+            loc.distanceToCOG.toFixed(1), String(loc.trips),
+            `${(loc.distanceToCOG * loc.trips).toFixed(0)} km`, loc.vehicleType
+          ];
+        } else {
+          return [
+            String(i + 1), loc.name, loc.distanceToCOG.toFixed(1), String(loc.trips),
+            `₹${loc.costPerTrip.toFixed(0)}`, `₹${loc.totalCost.toFixed(0)}`,
+            `₹${loc.totalFixedCost.toFixed(0)}`, `₹${loc.totalVariableCost.toFixed(0)}`
+          ];
+        }
+      });
+      
+      y = drawTable(doc, y, detailHeaders, detailRows, detailColWidths);
+      
+      addFooter(doc);
+    });
+    
+    doc.addPage();
+    addHeader(doc, doc.internal.getNumberOfPages());
+    
+    y = 35;
+    
+    doc.setTextColor(...textDark);
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Methodology & Assumptions', margin, y);
+    y += 12;
+    
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...textGray);
+    
+    const methodology = [
+      '• Algorithm: k-Means++ clustering initialized with weighted random selection',
+      '• Distance Calculation: Open Source Routing Machine (OSRM) road network distances',
+      '• Weighting: Trip-weighted Center of Gravity for optimal center placement',
+      '• Assignment: Each location assigned to nearest COG center by road distance',
+      '• Cost Model: Total Cost = Fixed Cost (per trip) + Variable Cost (per km) × Distance',
+      '• Fixed Cost includes: Vehicle fixed charges, loading/unloading, administrative costs',
+      '• Variable Cost includes: Rate per km + Fuel surcharge per km',
+      '',
+      'Disclaimer:',
+      'This report is generated using road distances from the OSRM public API. Actual distances may',
+      'vary based on road conditions, traffic, and route preferences. Cost estimates are based on',
+      'the tariff rates configured in the tool. For accurate financial planning, please validate',
+      'with actual contracted rates and consider seasonal variations in fuel prices.',
+      '',
+      'Recommendations:',
+      '1. Review COG center locations against actual available facilities/warehouses',
+      '2. Validate distance estimates with actual logistics team feedback',
+      '3. Consider additional constraints like vehicle availability and loading capacity',
+      '4. Update tariffs periodically to reflect market rates',
+      '5. Run sensitivity analysis with different k values to compare scenarios'
+    ];
+    
+    methodology.forEach(line => {
+      doc.text(line, margin, y);
+      y += line === '' ? 6 : 5.5;
+    });
+    
+    addFooter(doc);
+    
+    return doc;
+  }
+
+  window.exportDistanceToPDF = async function() {
+    if (!distanceResults) { alert('Run Distance COG first'); return; }
+    
+    showLoading(true, 'Generating PDF Report...');
+    
+    try {
+      const doc = await generatePDFReport('distance');
+      if (doc) {
+        doc.save('COG_Distance_Analysis_Report.pdf');
+        showStatus('uploadStatus', '✅ PDF Report downloaded', 'success');
+      }
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      alert('Error generating PDF: ' + error.message);
+    } finally {
+      showLoading(false);
+    }
+  };
+
+  window.exportCostToPDF = async function() {
+    if (!costResults) { alert('Run Cost COG first'); return; }
+    
+    showLoading(true, 'Generating PDF Report...');
+    
+    try {
+      const doc = await generatePDFReport('cost');
+      if (doc) {
+        const prefix = costMode === 'linked' ? 'Linked' : 'Independent';
+        doc.save(`COG_Cost_Analysis_${prefix}_Report.pdf`);
+        showStatus('uploadStatus', '✅ PDF Report downloaded', 'success');
+      }
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      alert('Error generating PDF: ' + error.message);
+    } finally {
+      showLoading(false);
+    }
+  };
+
+  // ============ EXCEL EXPORTS ============
+  window.exportDistanceToExcel = function() {
+    if (!distanceResults) { alert('Run Distance COG first'); return; }
+    const rows = [['COG', 'Location', 'Lat', 'Lng', 'Dist(km)', 'Trips', 'Total km', 'Vol(MT)', 'Vehicle']];
+    distanceResults.forEach(cog => {
+      cog.locations.forEach(loc => {
+        rows.push([cog.label, loc.name, loc.lat, loc.lng, loc.distanceToCOG?.toFixed(2), loc.trips, (loc.distanceToCOG * loc.trips).toFixed(0), loc.volume, loc.vehicleType]);
+      });
+    });
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Distance COG');
+    XLSX.writeFile(wb, 'distance_cog.xlsx');
+    showStatus('uploadStatus', '✅ Excel exported', 'success');
+  };
+
+  window.exportCostToExcel = function() {
+    if (!costResults) { alert('Run Cost COG first'); return; }
+    const rows = [['COG', 'Location', 'Dist(km)', 'Trips', 'Cost/Trip(₹)', 'Total Cost(₹)', 'Fixed(₹)', 'Variable(₹)', 'Vehicle', 'Mode']];
+    costResults.forEach(cog => {
+      cog.locations.forEach(loc => {
+        rows.push([cog.label, loc.name, loc.distanceToCOG?.toFixed(2), loc.trips, loc.costPerTrip?.toFixed(0), loc.totalCost?.toFixed(0), loc.totalFixedCost?.toFixed(0), loc.totalVariableCost?.toFixed(0), loc.vehicleType, costMode]);
+      });
+    });
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Cost COG');
+    XLSX.writeFile(wb, `cost_cog_${costMode}.xlsx`);
+    showStatus('uploadStatus', '✅ Excel exported', 'success');
+  };
+
+  // ============ UTILITIES ============
+  function downloadFile(content, filename) {
+    const blob = new Blob([content], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function showStatus(elementId, message, type) {
+    const el = document.getElementById(elementId);
+    if (el) {
+      const bgColor = type === 'error' ? '#fee2e2' : type === 'warning' ? '#FEF3E0' : '#E8E8FC';
+      el.innerHTML = `<span class="status-msg" style="background:${bgColor}; display:block;">${message}</span>`;
+    }
+  }
+
+  window.resetAll = function() {
+    if (!confirm('Reset all data and results?')) return;
+    allLocations = [];
+    distanceResults = null;
+    costResults = null;
+    costResultsIndependent = null;
+    
+    ['dataPreviewBody','distanceCOGList','costCOGList'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = id.includes('Preview') ? '<tr><td colspan="7" style="text-align:center;">No data</td></tr>' : '';
+    });
+    
+    ['distTotalKm','distAvgKm','distCogCount','distTotalTrips'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = id.includes('Count')||id.includes('Trips') ? '0' : '0 km';
+    });
+    
+    ['costTotal','costAvg','costFixed','costVariable','costCogCount','costTotalTrips'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = id.includes('Cost')||id.includes('Fixed')||id.includes('Variable') ? '₹0' : '0';
+    });
+    
+    if (distanceMap) { distanceMarkers.forEach(m => distanceMap.removeLayer(m)); distanceMarkers = []; distanceMap.setView([22.5, 78.5], 5); }
+    if (costMap) { costMarkers.forEach(m => costMap.removeLayer(m)); costMarkers = []; costMap.setView([22.5, 78.5], 5); }
+    
+    document.getElementById('dataCount').textContent = '';
+    updateCostCOGStatus();
+    showStatus('uploadStatus', '🔄 All reset', 'warning');
+  };
+
+  window.loadSampleData = loadSampleData;
+</script>
+</body>
+</html>

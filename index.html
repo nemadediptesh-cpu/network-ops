@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Network Ops &mdash; Supply Chain Tools</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --color-primary: #1018D8;
+    --color-dark-bg: #000000;
+    --color-light-gray: #D9D9D9;
+    --color-white: #FFFFFF;
+    --color-dark-text: #1A1A1A;
+    --color-primary-hover: #0B13B0;
+    --color-success: #0fa4a4;
+    --color-warning: #f59e0b;
+    --color-error: #c0152f;
+    --font-display: 'Space Grotesk', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  body{
+    font-family: var(--font-body);
+    background: var(--color-white);
+    color: var(--color-dark-text);
+    -webkit-font-smoothing: antialiased;
+  }
+  a{ color:inherit; text-decoration:none; }
+
+  /* ---------- background grid texture ---------- */
+  .grid-bg{
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(217,217,217,0.4) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(217,217,217,0.4) 1px, transparent 1px);
+    background-size: 56px 56px;
+    -webkit-mask-image: radial-gradient(ellipse 90% 60% at 50% 0%, black 30%, transparent 78%);
+            mask-image: radial-gradient(ellipse 90% 60% at 50% 0%, black 30%, transparent 78%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    position: relative;
+    z-index: 2;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 32px 24px 0;
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    color: var(--color-dark-text);
+    text-transform: uppercase;
+  }
+  .brand-mark{
+    width: 10px; height:10px;
+    background: var(--color-primary);
+    display:inline-block;
+    transform: rotate(45deg);
+  }
+  .topbar-status{
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: #666666;
+    text-transform: uppercase;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .dot-live{
+    width:6px; height:6px; border-radius:50%;
+    background: var(--color-success);
+    box-shadow: 0 0 0 0 rgba(15,164,164,0.6);
+    animation: pulse-live 2.2s infinite;
+  }
+  @keyframes pulse-live{
+    0%{ box-shadow: 0 0 0 0 rgba(15,164,164,0.55); }
+    70%{ box-shadow: 0 0 0 6px rgba(15,164,164,0); }
+    100%{ box-shadow: 0 0 0 0 rgba(15,164,164,0); }
+  }
+
+  /* ---------- hero ---------- */
+  .hero{
+    position: relative;
+    z-index: 2;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 72px 24px 20px;
+    text-align: center;
+  }
+  .eyebrow{
+    display:inline-flex;
+    align-items:center;
+    gap: 10px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-primary);
+    border: 1px solid rgba(16,24,216,0.35);
+    padding: 6px 14px;
+    border-radius: 100px;
+    margin-bottom: 28px;
+  }
+  h1{
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(2.4rem, 5.4vw, 4.4rem);
+    line-height: 1.06;
+    letter-spacing: -0.01em;
+    max-width: 900px;
+    margin: 0 auto 22px;
+    color: var(--color-dark-text);
+  }
+  h1 .accent{ color: var(--color-primary); }
+  .hero-sub{
+    max-width: 560px;
+    margin: 0 auto;
+    color: #666666;
+    font-size: 17px;
+    line-height: 1.6;
+  }
+
+  /* ---------- signature network diagram ---------- */
+  .network-wrap{
+    position: relative;
+    z-index: 2;
+    max-width: 980px;
+    margin: 56px auto 0;
+    padding: 0 24px;
+  }
+  .network-frame{
+    position: relative;
+    border: 1px solid rgba(16,24,216,0.15);
+    border-radius: 18px;
+    background: linear-gradient(180deg, var(--color-white), rgba(16,24,216,0.04));
+    overflow: hidden;
+  }
+  .network-frame svg{ display:block; width:100%; height:auto; }
+  .frame-label{
+    position:absolute;
+    top: 16px; left: 20px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #666666;
+  }
+  .frame-label span{ color: var(--color-primary); }
+  .frame-label.right{ left:auto; right:20px; text-align:right; }
+
+  .node-plant{ fill: var(--color-dark-text); }
+  .node-wh{ fill: var(--color-primary); stroke: var(--color-dark-text); stroke-width: 1.5; }
+  .node-cog{ fill: var(--color-warning); }
+  .route-line{
+    stroke: rgba(102,102,102,0.35);
+    stroke-width: 1.4;
+    stroke-dasharray: 4 5;
+    fill:none;
+    animation: dash-move 22s linear infinite;
+  }
+  @keyframes dash-move{ to{ stroke-dashoffset: -300; } }
+  .cog-pulse{
+    fill:none;
+    stroke: var(--color-warning);
+    stroke-width: 1.4;
+    opacity: 0.7;
+    transform-origin: center;
+    animation: cog-ring 2.6s ease-out infinite;
+  }
+  @keyframes cog-ring{
+    0%{ r:10; opacity:0.85; }
+    100%{ r:34; opacity:0; }
+  }
+
+  /* ---------- tools section ---------- */
+  .tools{
+    position: relative;
+    z-index: 2;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 96px 24px 40px;
+  }
+  .tools-head{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap: 24px;
+    margin-bottom: 36px;
+    flex-wrap: wrap;
+  }
+  .tools-head h2{
+    font-family: var(--font-display);
+    font-size: clamp(1.6rem, 2.6vw, 2.1rem);
+    font-weight: 600;
+    color: var(--color-dark-text);
+  }
+  .tools-head p{
+    color: #666666;
+    font-size: 14px;
+    max-width: 340px;
+  }
+
+  .tools-grid{
+    display:grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 28px;
+  }
+  @media (max-width: 880px){ .tools-grid{ grid-template-columns: 1fr; } }
+
+  .tool-card{
+    position: relative;
+    background: var(--color-white);
+    color: var(--color-dark-text);
+    border-radius: 18px;
+    padding: 34px 34px 30px;
+    display:flex;
+    flex-direction:column;
+    transition: transform 0.35s ease, box-shadow 0.35s ease;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    border: 1px solid var(--color-light-gray);
+  }
+  .tool-card:hover{
+    transform: translateY(-6px);
+    box-shadow: 0 24px 48px rgba(0,0,0,0.1);
+    border-color: var(--color-primary);
+  }
+  .tool-card:focus-visible{
+    outline: 2px solid var(--color-primary);
+    outline-offset: 3px;
+  }
+  .card-top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom: 22px;
+  }
+  .card-tag{
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-primary);
+    background: rgba(16,24,216,0.08);
+    padding: 5px 10px;
+    border-radius: 100px;
+  }
+  .card-index{
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: #666666;
+  }
+  .card-diagram{ margin-bottom: 20px; }
+  .card-diagram svg{ display:block; }
+
+  .tool-card h3{
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: var(--color-dark-text);
+  }
+  .tool-card > p.desc{
+    color: #666666;
+    font-size: 14.5px;
+    line-height: 1.55;
+    margin-bottom: 22px;
+  }
+  .feature-list{
+    list-style:none;
+    margin-bottom: 28px;
+    display:flex;
+    flex-direction:column;
+    gap: 9px;
+  }
+  .feature-list li{
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    font-size: 14px;
+    color: var(--color-dark-text);
+  }
+  .tick{
+    width: 14px; height:14px;
+    flex: none;
+    color: var(--color-success);
+  }
+  .card-footer{
+    margin-top: auto;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 16px;
+  }
+  .launch-btn{
+    background: var(--color-primary);
+    color: var(--color-white);
+    padding: 13px 22px;
+    border-radius: 100px;
+    font-weight: 600;
+    font-size: 14.5px;
+    display:inline-flex;
+    align-items:center;
+    gap: 8px;
+    transition: background 0.25s ease, gap 0.25s ease;
+  }
+  .tool-card:hover .launch-btn{ background: var(--color-primary-hover); gap: 12px; }
+  .card-meta{
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: #666666;
+    text-align: right;
+    line-height: 1.5;
+  }
+
+  /* ---------- footer ---------- */
+  footer{
+    position: relative;
+    z-index: 2;
+    max-width: 1180px;
+    margin: 60px auto 0;
+    padding: 28px 24px 40px;
+    border-top: 1px solid var(--color-light-gray);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  footer .brand{ opacity:0.8; color: var(--color-dark-text); }
+  footer .foot-note{
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: #666666;
+    letter-spacing: 0.04em;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .dot-live, .route-line, .cog-pulse{ animation: none; }
+  }
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+
+<div class="topbar">
+  <a href="../index.html" class="brand"><span class="brand-mark"></span>Network Ops</a>
+  <div class="topbar-status"><span class="dot-live"></span>Tools online</div>
+</div>
+
+<section class="hero">
+  <div class="eyebrow">Supply Chain Tooling</div>
+  <h1>Every network decision starts with <span class="accent">where things sit</span> on the map.</h1>
+  <p class="hero-sub">Two focused tools for planners who move freight for a living &mdash; measure real road distance between any plant and warehouse, then find the location that cuts total cost across your whole network.</p>
+</section>
+
+<div class="network-wrap">
+  <div class="network-frame">
+    <div class="frame-label">Plants <span>&middot;</span> Warehouses <span>&middot;</span> <span>Optimal site</span></div>
+    <div class="frame-label right">Live network preview</div>
+    <svg viewBox="0 0 980 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Diagram of plant and warehouse nodes connected by routes, with a highlighted optimal center-of-gravity location">
+      <!-- routes -->
+      <path class="route-line" d="M120,70 C 300,60 380,150 500,150" />
+      <path class="route-line" d="M150,230 C 300,210 400,170 500,150" />
+      <path class="route-line" d="M120,150 C 260,150 380,150 500,150" />
+      <path class="route-line" d="M860,60 C 700,80 600,120 500,150" />
+      <path class="route-line" d="M880,150 C 740,150 620,150 500,150" />
+      <path class="route-line" d="M840,240 C 700,220 600,180 500,150" />
+
+      <!-- warehouses (squares, left) -->
+      <rect class="node-wh" x="112" y="62" width="16" height="16" rx="3"/>
+      <rect class="node-wh" x="142" y="222" width="16" height="16" rx="3"/>
+      <rect class="node-wh" x="112" y="142" width="16" height="16" rx="3"/>
+
+      <!-- plants (circles, right) -->
+      <circle class="node-plant" cx="864" cy="60" r="8"/>
+      <circle class="node-plant" cx="884" cy="150" r="8"/>
+      <circle class="node-plant" cx="844" cy="240" r="8"/>
+
+      <!-- COG optimal node, center -->
+      <circle class="cog-pulse" cx="500" cy="150" r="10"/>
+      <circle class="node-cog" cx="500" cy="150" r="9"/>
+    </svg>
+  </div>
+</div>
+
+<section class="tools" id="tools">
+  <div class="tools-head">
+    <h2>Open a tool</h2>
+    <p>Built for the same network data &mdash; run them together or on their own.</p>
+  </div>
+
+  <div class="tools-grid">
+    <!-- Tool 1 -->
+    <a href="pages/distance-mapper.html" class="tool-card">
+      <div class="card-top">
+        <span class="card-tag">Route analysis</span>
+        <span class="card-index">TOOL / 01</span>
+      </div>
+      <div class="card-diagram">
+        <svg width="100%" height="70" viewBox="0 0 380 70" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <path d="M10,50 C 90,10 180,60 250,25 C 300,5 330,20 370,15" stroke="#1018D8" stroke-width="2" stroke-dasharray="1 7" stroke-linecap="round" fill="none"/>
+          <circle cx="10" cy="50" r="6" fill="#1018D8"/>
+          <circle cx="370" cy="15" r="6" fill="#f59e0b"/>
+        </svg>
+      </div>
+      <h3>Distance Mapper</h3>
+      <p class="desc">Calculate real road distances from every plant to every warehouse, not straight-line estimates that hide detours, borders, and terrain.</p>
+      <ul class="feature-list">
+        <li><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>Real OSRM road distances</li>
+        <li><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>Interactive route maps</li>
+        <li><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>Route visualization</li>
+        <li><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>Export to PDF</li>
+        <li><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>Save &amp; load projects</li>
+      </ul>
+      <div class="card-footer">
+        <span class="launch-btn">Open tool &rarr;</span>
+        <span class="card-meta">plant &rarr; warehouse<br/>road network</span>
+      </div>
+    </a>
+
+    <!-- Tool 2 -->
+    <a href="pages/cog-mapper.html" class="tool-card">
+      <div class="card-top">
+        <span class="card-tag">Network optimization</span>
+        <span class="card-index">TOOL / 02</span>
+      </div>
+      <div class="card-diagram">
+        <svg width="100%" height="70" viewBox="0 0 380 70" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="60" cy="20" r="5" fill="#1018D8"/>
+          <circle cx="90" cy="55" r="5" fill="#1018D8"/>
+          <circle cx="150" cy="15" r="5" fill="#1018D8"/>
+          <circle cx="310" cy="50" r="5" fill="#1018D8"/>
+          <circle cx="340" cy="20" r="5" fill="#1018D8"/>
+          <circle cx="200" cy="35" r="11" fill="none" stroke="#f59e0b" stroke-width="2"/>
+          <circle cx="200" cy="35" r="4" fill="#f59e0b"/>
+        </svg>
+      </div>
+      <h3>COG Mapping Tool</h3>
+      <p class="desc">Find the center-of-gravity location that minimizes total distribution cost across your entire demand network.</p>
+      <ul class="feature-list">
+        <li><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>K-means clustering</li>
+        <li><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>Cost optimization</li>
+        <li><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>Trip-weighted analysis</li>
+        <li><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>Export to Excel / PDF</li>
+        <li><svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>Linked &amp; independent modes</li>
+      </ul>
+      <div class="card-footer">
+        <span class="launch-btn">Open tool &rarr;</span>
+        <span class="card-meta">demand nodes &rarr; optimal site<br/>cost-weighted</span>
+      </div>
+    </a>
+  </div>
+</section>
+
+<footer>
+  <a href="../index.html" class="brand"><span class="brand-mark"></span>Network Ops</a>
+  <div class="foot-note">Built for planners who move freight for a living</div>
+</footer>
+
+</body>
+</html>
